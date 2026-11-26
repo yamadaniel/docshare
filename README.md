@@ -1,1 +1,129 @@
 # docshare
+
+リンクを知っていれば誰でも編集できる、軽量な共同編集メモ。ログイン不要。Cloudflare Workers + Durable Objects + D1 の無料枠で動く。
+
+- エディタ：ProseMirror を直接使用（太字・斜体・下線・チェックボックス）
+- 同期：prosemirror-collab。文書ごとに 1 つの Durable Object（DocRoom）が編集を確定・保存する
+- 履歴：編集はすべてリビジョンとして編集者付きで保存。任意の版に戻せる
+- ユーザー名：D1 に保存。名前を変えると過去の履歴の表示名も変わる
+
+## 必要なもの
+
+- Node.js 22 以上
+- Cloudflare アカウント（デプロイ時）
+
+## ローカル開発
+
+依存パッケージを入れ、ローカルの D1 にテーブルを作る。
+
+```bash
+npm install
+```
+
+```bash
+npm run migrate:local
+```
+
+フロントをビルドして `wrangler dev` を起動する（http://localhost:8787）。
+
+```bash
+npm run dev
+```
+
+フロントを編集しながら確認する場合は、別のターミナルで監視ビルドを動かす。`wrangler dev` は `dist/client` の変更を拾う。
+
+```bash
+npm run watch
+```
+
+型検査：
+
+```bash
+npm run typecheck
+```
+
+## デプロイ
+
+1. Cloudflare にログインする。
+
+   ```bash
+   npx wrangler login
+   ```
+
+2. D1 データベースを作る。
+
+   ```bash
+   npx wrangler d1 create docshare
+   ```
+
+   出力された `database_id` を `wrangler.jsonc` の `d1_databases[0].database_id` に書く（初期値はダミーの `00000000-…`）。
+
+3. 本番の D1 にテーブルを作る。
+
+   ```bash
+   npm run migrate:remote
+   ```
+
+4. ビルドしてデプロイする。Durable Object（DocRoom、SQLite バックエンド）は初回デプロイ時に `migrations` の `v1` で作られる。
+
+   ```bash
+   npm run deploy
+   ```
+
+   完了すると `https://docshare.<アカウントのサブドメイン>.workers.dev` で公開される。
+
+### 設定項目（wrangler.jsonc）
+
+| 項目 | 内容 |
+| --- | --- |
+| `assets.run_worker_first` | `/api/*` は常に Worker で処理する。それ以外は静的ファイル、なければ `index.html`（SPA フォールバック） |
+| `ratelimits` | 文書作成・ユーザー登録の IP 単位レート制限（60 秒あたり 10 回）。`namespace_id` はアカウント内で一意な整数文字列。バインディングが使えない環境では Worker 内の簡易カウンターで代替する |
+| `d1_databases` | ユーザー情報（`users` テーブル）。マイグレーションは `migrations/` |
+
+## 構成
+
+```
+src/client      フロント（エディタ、ツールバー、履歴シート、名前モーダル）
+src/shared      schema、WebSocket メッセージ型、定数（フロントと DocRoom で共用）
+src/worker      Worker エントリ、API ルーティング、レート制限
+src/worker/do   DocRoom（Durable Object）
+migrations      D1 マイグレーション
+public/_headers 静的ファイルのセキュリティヘッダー
+```
+
+## API
+
+| メソッド | パス | 内容 |
+| --- | --- | --- |
+| POST | /api/docs | 文書作成 → `{ docId }` |
+| GET | /api/docs/{docId}/revisions?before=&limit=50 | 履歴一覧（新しい順、名前付き） |
+| GET | /api/docs/{docId}/revisions/{revId} | その時点の文書 JSON |
+| POST | /api/users | 初回登録 `{ userId, secret, name }` |
+| PATCH | /api/users/me | 名前変更 `{ name }`（`X-User-Id` / `X-User-Secret` ヘッダーで認証） |
+| GET | /api/docs/{docId}/ws | WebSocket（DocRoom へ転送） |
+
+WebSocket のメッセージ型は `src/shared/messages.ts` を参照。
+
+## 制限
+
+| 項目 | 値 |
+| --- | --- |
+| WebSocket 1 メッセージ | 64KB |
+| 文書全体 | 1MB（JSON 換算） |
+| 文書名 | 100 文字 |
+| 名前 | 1〜20 文字 |
+| WebSocket メッセージ数 | 1 接続あたり毎秒 20 件 |
+| 文書作成・ユーザー登録 | IP ごとに 60 秒あたり 10 回 |
+
+## 無料枠の目安
+
+DocRoom の SQLite への行書き込み数（`wrangler dev` 上で `rowsWritten` を計測）：
+
+| 操作 | 行書き込み |
+| --- | --- |
+| 編集の送信 1 回（1 リビジョン） | 2 行（revisions への追加、meta.version の更新） |
+| 200 step ごとのスナップショット | ＋1 行 |
+| 文書名の変更 | 2 行 |
+| 文書作成 | 4 行（meta 3 行、初期スナップショット 1 行。計測ではなく実装からの見積もり） |
+
+クライアントは入力停止 500ms 後（連続入力中は 2 秒ごと）にまとめて送るため、入力し続けても 1 人あたり約 2 秒に 1 リビジョンになる。無料枠の行書き込み 10 万行/日は、およそ 5 万リビジョン/日に相当する。
