@@ -35,7 +35,8 @@ async function copyText(text: string): Promise<boolean> {
 export function renderDocPage(app: HTMLElement, docId: string, ctx: PageContext): () => void {
   let view: EditorView | null = null;
   let title = "";
-  let online = false;
+  /** オフライン中に変更した文書名。再接続後に送る */
+  let pendingTitle: string | null = null;
 
   const titleInput = h("input", {
     class: "title-input",
@@ -60,7 +61,7 @@ export function renderDocPage(app: HTMLElement, docId: string, ctx: PageContext)
 
   const applyTitle = (next: string) => {
     title = next;
-    if (document.activeElement !== titleInput) titleInput.value = next;
+    if (document.activeElement !== titleInput && pendingTitle === null) titleInput.value = next;
     document.title = `${next || UNTITLED} | docshare`;
     touchRecent(docId, next);
   };
@@ -78,9 +79,14 @@ export function renderDocPage(app: HTMLElement, docId: string, ctx: PageContext)
     },
     onInit(msg) {
       applyTitle(msg.title);
+      if (pendingTitle !== null) {
+        const next = pendingTitle;
+        pendingTitle = null;
+        if (next !== msg.title && conn.sendTitle(next)) titleInput.value = next;
+        else pendingTitle = next === msg.title ? null : next;
+      }
     },
     onStatus(next) {
-      online = next;
       presence.classList.toggle("online", next);
       banner.hidden = next || !view;
     },
@@ -138,18 +144,24 @@ export function renderDocPage(app: HTMLElement, docId: string, ctx: PageContext)
   titleInput.addEventListener("keydown", (e) => {
     if (e.key === "Enter" && !e.isComposing) titleInput.blur();
     if (e.key === "Escape") {
-      titleInput.value = title;
+      titleInput.value = pendingTitle ?? title;
       titleInput.blur();
     }
   });
   titleInput.addEventListener("blur", () => {
     const next = sanitizeTitle(titleInput.value);
-    if (next === null || next === title || !online) {
-      titleInput.value = title;
+    if (next === null) {
+      titleInput.value = pendingTitle ?? title;
       return;
     }
     titleInput.value = next;
-    conn.sendTitle(next);
+    if (next === (pendingTitle ?? title)) return;
+    if (conn.sendTitle(next)) {
+      pendingTitle = null;
+    } else {
+      pendingTitle = next;
+      toast("オフラインのため、再接続後に文書名を反映する");
+    }
   });
 
   nameChip.addEventListener("click", () => {
