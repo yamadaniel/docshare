@@ -117,6 +117,7 @@ src/worker/do   DocRoom（Durable Object）
 migrations      D1 マイグレーション
 public/_headers 静的ファイルのセキュリティヘッダー（/about だけ X-Robots-Tag を外す）
 public/about.html 紹介ページ
+public/about-img 紹介ページの写真（ぱくたそのフリー素材。S サイズ相当に縮小し、ロゴをぼかしている）
 tests           試験（npm test）
 ```
 
@@ -158,6 +159,10 @@ DocRoom の SQLite への行書き込み数（`wrangler dev` 上で `rowsWritten
 | 文書作成 | 4 行（meta 3 行、初期スナップショット 1 行。計測ではなく実装からの見積もり） |
 
 クライアントは入力停止 500ms 後（連続入力中は 2 秒ごと）にまとめて送るため、入力し続けても 1 人あたり約 2 秒に 1 リビジョンになる。無料枠の行書き込み 10 万行/日は、およそ 5 万リビジョン/日に相当する。
+
+## 写真素材
+
+紹介ページ（`public/about-img/`）の写真は、ぱくたそ［ https://www.pakutaso.com ］のフリー素材を利用しています。二次配布物の受領者がこの素材を継続して利用する場合は、ぱくたそ公式サイトからご自身でダウンロードしていただくか、ぱくたそのご利用規約［ https://www.pakutaso.com/userpolicy.html ］に同意していただく必要があります。
 
 ## 動作確認済みの環境
 
