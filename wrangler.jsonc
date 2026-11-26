@@ -16,7 +16,7 @@
     {
       "binding": "DB",
       "database_name": "docshare",
-      "database_id": "00000000-0000-0000-0000-000000000000",
+      "database_id": "0a7741a6-ebc5-4de9-9794-783be99e82ab",
       "migrations_dir": "./migrations"
     }
   ]
