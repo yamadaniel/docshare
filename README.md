@@ -6,7 +6,7 @@
 - リンク：URL を入力して空白を打つか、URL を貼り付けるとリンクになる。文字を選んでツールバーの 🔗 からも付けられる。リンク上にカーソルを置くと「開く・編集・解除」が出る。PC では Ctrl / Cmd + K で入力、Ctrl / Cmd + クリックで開く。使えるのは http・https・mailto だけ
 - 表示：ヘッダーの ☀ / ● でライト・ダークを切り替える（端末に保存）。選ぶまでは OS の設定に従う
 - AI からの読み取り：`/d/{docId}` の HTML には本文がサーバー側で埋め込まれる。JavaScript を実行しない読み手（Claude・ChatGPT・Gemini などの URL 読み取り）にも中身が見える
-- 紹介ページ：`/about`（静的 HTML。トップの「docshare とは」から開く。名前登録なしで読める）
+- 紹介ページ：`/about`（静的 HTML。トップの「docshare とは」から開く。名前登録なしで読める。ここだけ `noindex` を付けず検索エンジンに載せる）
 - 同期：prosemirror-collab。文書ごとに 1 つの Durable Object（DocRoom）が編集を確定・保存する
 - 履歴：編集はすべてリビジョンとして編集者付きで保存。任意の版に戻せる
 - ユーザー名：D1 に保存。名前を変えると過去の履歴の表示名も変わる
@@ -115,7 +115,7 @@ src/shared      schema、WebSocket メッセージ型、定数（フロントと
 src/worker      Worker エントリ、API ルーティング、レート制限、本文のサーバー側描画
 src/worker/do   DocRoom（Durable Object）
 migrations      D1 マイグレーション
-public/_headers 静的ファイルのセキュリティヘッダー
+public/_headers 静的ファイルのセキュリティヘッダー（/about だけ X-Robots-Tag を外す）
 public/about.html 紹介ページ
 tests           試験（npm test）
 ```

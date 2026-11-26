@@ -368,6 +368,8 @@ test("紹介ページはトップから開け、名前未登録でも名前モ�
   const res = await page.goto(BASE + "/about");
   assert.equal(res.status(), 200);
   assert.equal(res.headers()["referrer-policy"], "no-referrer");
+  assert.equal(res.headers()["x-robots-tag"], undefined, "紹介ページは検索エンジンに載せる");
+  assert.equal(await page.$('meta[name="robots"]'), null);
   assert.equal(await page.$(".overlay"), null);
   assert.match(await page.textContent("body"), /リンクを知っている人は誰でも読み書きできる/);
   await browser.close();
