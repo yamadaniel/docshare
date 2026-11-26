@@ -56,7 +56,7 @@ npm run typecheck
    npx wrangler d1 create docshare
    ```
 
-   出力された `database_id` を `wrangler.jsonc` の `d1_databases[0].database_id` に書く（初期値はダミーの `00000000-…`）。
+   出力された `database_id` を `wrangler.jsonc` の `d1_databases[0].database_id` に書く。このリポジトリには本番用の ID が設定済みなので、別のアカウントにデプロイする場合だけ書き換える。
 
 3. 本番の D1 にテーブルを作る。
 
