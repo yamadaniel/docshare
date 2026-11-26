@@ -52,7 +52,7 @@ function navigate(path: string): void {
 // 同一オリジンのリンクは SPA 内遷移にする
 document.addEventListener("click", (e) => {
   const a = (e.target as HTMLElement).closest?.("a");
-  if (!a || a.target || e.defaultPrevented || e.button !== 0 || e.metaKey || e.ctrlKey || e.shiftKey) return;
+  if (!a || a.target || a.hasAttribute("data-reload") || e.defaultPrevented || e.button !== 0 || e.metaKey || e.ctrlKey || e.shiftKey) return;
   const url = new URL(a.href, location.href);
   if (url.origin !== location.origin) return;
   e.preventDefault();

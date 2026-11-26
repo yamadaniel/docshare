@@ -6,6 +6,7 @@
 - リンク：URL を入力して空白を打つか、URL を貼り付けるとリンクになる。文字を選んでツールバーの 🔗 からも付けられる。リンク上にカーソルを置くと「開く・編集・解除」が出る。PC では Ctrl / Cmd + K で入力、Ctrl / Cmd + クリックで開く。使えるのは http・https・mailto だけ
 - 表示：ヘッダーの ☀ / ● でライト・ダークを切り替える（端末に保存）。選ぶまでは OS の設定に従う
 - AI からの読み取り：`/d/{docId}` の HTML には本文がサーバー側で埋め込まれる。JavaScript を実行しない読み手（Claude・ChatGPT・Gemini などの URL 読み取り）にも中身が見える
+- 紹介ページ：`/about`（静的 HTML。トップの「docshare とは」から開く。名前登録なしで読める）
 - 同期：prosemirror-collab。文書ごとに 1 つの Durable Object（DocRoom）が編集を確定・保存する
 - 履歴：編集はすべてリビジョンとして編集者付きで保存。任意の版に戻せる
 - ユーザー名：D1 に保存。名前を変えると過去の履歴の表示名も変わる
@@ -115,6 +116,7 @@ src/worker      Worker エントリ、API ルーティング、レート制限�
 src/worker/do   DocRoom（Durable Object）
 migrations      D1 マイグレーション
 public/_headers 静的ファイルのセキュリティヘッダー
+public/about.html 紹介ページ
 tests           試験（npm test）
 ```
 
@@ -128,6 +130,7 @@ tests           試験（npm test）
 | POST | /api/users | 初回登録 `{ userId, secret, name }` |
 | PATCH | /api/users/me | 名前変更 `{ name }`（`X-User-Id` / `X-User-Secret` ヘッダーで認証） |
 | GET | /api/docs/{docId}/ws | WebSocket（DocRoom へ転送） |
+| GET | /about | 紹介ページ（静的 HTML） |
 | GET | /d/{docId} | 文書画面。本文を埋め込んだ HTML を返す（存在しない文書は 404） |
 
 WebSocket のメッセージ型は `src/shared/messages.ts` を参照。
