@@ -42,6 +42,29 @@ npm run watch
 npm run typecheck
 ```
 
+## テスト
+
+```bash
+npm test
+```
+
+テスト用の `wrangler dev`（ポート 8788、保存先 `.wrangler/test-state`）を起動し、`tests/` の試験を順に実行する。普段の開発データには触れない。
+
+- `tests/protocol.test.mjs`：WebSocket と HTTP API（step の検証、サイズ上限、認証、レート制限、スナップショット）
+- `tests/e2e.test.mjs`：スマホ幅のブラウザでの操作（同時編集、チェックボックス、履歴と復元、名前変更、オフライン、再接続、D1 障害からの復帰）
+
+ブラウザ試験には Chromium が必要。初回だけ入れておく。
+
+```bash
+npx playwright-core install chromium
+```
+
+一部のファイルだけ流す場合は引数で指定する。
+
+```bash
+node tests/run.mjs tests/protocol.test.mjs
+```
+
 ## デプロイ
 
 1. Cloudflare にログインする。
@@ -89,6 +112,7 @@ src/worker      Worker エントリ、API ルーティング、レート制限
 src/worker/do   DocRoom（Durable Object）
 migrations      D1 マイグレーション
 public/_headers 静的ファイルのセキュリティヘッダー
+tests           試験（npm test）
 ```
 
 ## API
@@ -127,3 +151,11 @@ DocRoom の SQLite への行書き込み数（`wrangler dev` 上で `rowsWritten
 | 文書作成 | 4 行（meta 3 行、初期スナップショット 1 行。計測ではなく実装からの見積もり） |
 
 クライアントは入力停止 500ms 後（連続入力中は 2 秒ごと）にまとめて送るため、入力し続けても 1 人あたり約 2 秒に 1 リビジョンになる。無料枠の行書き込み 10 万行/日は、およそ 5 万リビジョン/日に相当する。
+
+## 動作確認済みの環境
+
+| 環境 | 状態 |
+| --- | --- |
+| iPhone Safari | 実機で確認済み（複数端末での同時編集、キーボード表示中のツールバー） |
+| Chromium（スマホ幅のエミュレーション） | `npm test` で確認 |
+| Android Chrome | 未確認。Chrome 108 以降はキーボード表示時に visualViewport だけが縮むため、iOS と同じ仕組みで追従する想定 |

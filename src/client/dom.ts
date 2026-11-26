@@ -36,3 +36,20 @@ export function toast(text: string): void {
   clearTimeout(toastTimer);
   toastTimer = window.setTimeout(() => el!.classList.remove("show"), 2500);
 }
+
+/**
+ * モーダル表示中に背後の画面（#app）を操作・フォーカスできなくする。
+ * 戻り値を呼ぶと元に戻す。重ねて呼んでも最後の解除で戻る
+ */
+let inertDepth = 0;
+export function inertApp(): () => void {
+  const app = document.getElementById("app");
+  if (!app) return () => {};
+  if (inertDepth++ === 0) app.inert = true;
+  let released = false;
+  return () => {
+    if (released) return;
+    released = true;
+    if (--inertDepth === 0) app.inert = false;
+  };
+}

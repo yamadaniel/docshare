@@ -27,6 +27,10 @@ export interface SyncCallbacks {
 
 const encoder = new TextEncoder();
 const PING_MS = 30_000;
+/** 接続開始から init を受け取るまでの上限 */
+const HANDSHAKE_MS = 15_000;
+/** 復帰時の生存確認で pong を待つ時間 */
+const PROBE_MS = 5_000;
 
 export class DocConnection {
   private ws: WebSocket | null = null;
@@ -42,6 +46,8 @@ export class DocConnection {
   private firstPendingAt = 0;
   private reconnectTimer = 0;
   private pingTimer = 0;
+  private handshakeTimer = 0;
+  private probeTimer = 0;
   private lastPong = 0;
 
   constructor(
@@ -63,6 +69,8 @@ export class DocConnection {
     const proto = location.protocol === "https:" ? "wss:" : "ws:";
     const ws = new WebSocket(`${proto}//${location.host}/api/docs/${this.docId}/ws`);
     this.ws = ws;
+    // サーバーが応答しないまま止まらないよう、init が来なければ張り直す
+    this.handshakeTimer = window.setTimeout(() => this.dropped(ws), HANDSHAKE_MS);
     ws.onopen = () => {
       const { userId, secret } = this.getUser();
       this.send({ type: "hello", userId, secret });
@@ -93,6 +101,8 @@ export class DocConnection {
   private dropped(ws: WebSocket): void {
     if (this.ws !== ws) return;
     clearInterval(this.pingTimer);
+    clearTimeout(this.handshakeTimer);
+    clearTimeout(this.probeTimer);
     this.ws = null;
     this.synced = false;
     this.inflight = false;
@@ -111,7 +121,23 @@ export class DocConnection {
   private readonly onOnline = (): void => {
     this.retry = 0;
     if (!this.ws) this.connect();
+    else this.probe();
   };
+
+  /**
+   * 接続が生きているかを確かめる。回線の切り替えやバックグラウンドからの復帰後は、
+   * close イベントが来ないまま接続だけが死んでいることがある
+   */
+  private probe(): void {
+    const ws = this.ws;
+    if (!ws || ws.readyState !== WebSocket.OPEN) return;
+    const sentAt = Date.now();
+    ws.send("ping");
+    clearTimeout(this.probeTimer);
+    this.probeTimer = window.setTimeout(() => {
+      if (this.lastPong < sentAt) this.dropped(ws);
+    }, PROBE_MS);
+  }
 
   /** 回線断を検知したら、ping のタイムアウトを待たずに閉じて再接続に備える */
   private readonly onOffline = (): void => {
@@ -121,6 +147,7 @@ export class DocConnection {
   private readonly onVisibility = (): void => {
     if (document.visibilityState === "hidden") this.sendNow();
     else if (!this.ws) this.connect();
+    else this.probe();
   };
 
   destroy(): void {
@@ -129,6 +156,8 @@ export class DocConnection {
     clearTimeout(this.sendTimer);
     clearTimeout(this.reconnectTimer);
     clearInterval(this.pingTimer);
+    clearTimeout(this.handshakeTimer);
+    clearTimeout(this.probeTimer);
     window.removeEventListener("online", this.onOnline);
     window.removeEventListener("offline", this.onOffline);
     document.removeEventListener("visibilitychange", this.onVisibility);
@@ -162,6 +191,7 @@ export class DocConnection {
   }
 
   private onInit(msg: Extract<ServerMessage, { type: "init" }>): void {
+    clearTimeout(this.handshakeTimer);
     this.retry = 0;
     const local = this.view ? getVersion(this.view.state) : -1;
     if (!this.view || this.needReset || msg.version < local) {
@@ -280,8 +310,9 @@ export class DocConnection {
     return this.view ? getVersion(this.view.state) : 0;
   }
 
-  sendTitle(title: string): void {
-    this.send({ type: "title", version: this.version, title });
+  /** 送信できなければ false（オフライン中など） */
+  sendTitle(title: string): boolean {
+    return this.send({ type: "title", version: this.version, title });
   }
 
   sendRename(): void {
