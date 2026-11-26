@@ -1,101 +1,62 @@
-import { Fragment, type Node, type MarkType } from "prosemirror-model";
-import { TextSelection, type Command, type EditorState, type Transaction } from "prosemirror-state";
+import { Fragment, Slice, type MarkType } from "prosemirror-model";
+import type { Command, EditorState, Transaction } from "prosemirror-state";
+import { ReplaceAroundStep } from "prosemirror-transform";
 import { InputRule } from "prosemirror-inputrules";
 import type { EditorView } from "prosemirror-view";
 import { schema } from "../shared/schema";
 
 const { paragraph, task_list, task_item } = schema.nodes;
 
-interface Line {
-  node: Node;
-  /** textblock の開始位置（開きトークンの位置） */
-  pos: number;
-  selected: boolean;
-}
-
 /**
  * 選択範囲の行を paragraph ⇄ task_item に変換する。
  * makeTask 未指定なら「選択行がすべてタスクなら解除、そうでなければタスク化」。
+ * 行の中身には触れず外側の構造だけを差し替えるので、同時編集中の入力を巻き込まない。
  */
 export function convertLines(tr: Transaction, makeTask?: boolean): boolean {
-  const { $from, $to, from, to, anchor, head } = tr.selection;
-  const doc = tr.doc;
-  const fromIdx = $from.index(0);
-  const toIdx = Math.min($to.index(0), doc.childCount - 1);
-  const start = $from.posAtIndex(fromIdx, 0);
-  const end = $to.posAtIndex(toIdx + 1, 0);
+  const { from, to } = tr.selection;
+  const lines: { pos: number; isTask: boolean }[] = [];
+  tr.doc.nodesBetween(from, to, (node, pos) => {
+    if (!node.isTextblock) return true;
+    lines.push({ pos, isTask: node.type === task_item });
+    return false;
+  });
+  if (!lines.length) return false;
+  const toTask = makeTask ?? !lines.every((l) => l.isTask);
 
-  const lines: Line[] = [];
-  let pos = start;
-  for (let i = fromIdx; i <= toIdx; i++) {
-    const block = doc.child(i);
-    if (block.type === task_list) {
-      let p = pos + 1;
-      block.forEach((item) => {
-        lines.push({ node: item, pos: p, selected: from <= p + item.nodeSize - 1 && to >= p + 1 });
-        p += item.nodeSize;
-      });
-    } else {
-      lines.push({ node: block, pos, selected: from <= pos + block.nodeSize - 1 && to >= pos + 1 });
-    }
-    pos += block.nodeSize;
-  }
-  const selected = lines.filter((l) => l.selected);
-  if (!selected.length) return false;
-  const toTask = makeTask ?? !selected.every((l) => l.node.type === task_item);
-
-  // 行を作り直し、連続するタスクを task_list にまとめる
-  const nodes: Node[] = [];
-  const newPos: number[] = [];
-  let group: Node[] = [];
-  let cursor = start;
-  const flush = () => {
-    if (!group.length) return;
-    nodes.push(task_list.create(null, group));
-    cursor += 1; // task_list の閉じトークン
-    group = [];
-  };
-  for (const line of lines) {
-    const asTask = line.selected ? toTask : line.node.type === task_item;
-    if (asTask) {
-      if (!group.length) cursor += 1; // task_list の開きトークン
-      const item =
-        line.node.type === task_item ? line.node : task_item.create({ checked: false }, line.node.content);
-      newPos.push(cursor);
-      group.push(item);
-      cursor += item.nodeSize;
-    } else {
-      flush();
-      const para = line.node.type === paragraph ? line.node : paragraph.create(null, line.node.content);
-      newPos.push(cursor);
-      nodes.push(para);
-      cursor += para.nodeSize;
-    }
-  }
-  flush();
-
-  const remap = (p: number): number => {
-    for (let i = 0; i < lines.length; i++) {
-      const l = lines[i];
-      if (p >= l.pos && p <= l.pos + l.node.nodeSize) {
-        const offset = Math.max(0, Math.min(p - l.pos - 1, l.node.content.size));
-        return newPos[i] + 1 + offset;
+  // 後ろの行から処理すると、手前の行の位置は変わらない
+  for (const line of lines.reverse()) {
+    if (line.isTask === toTask) continue;
+    const pos = line.pos;
+    const end = pos + tr.doc.nodeAt(pos)!.nodeSize;
+    if (toTask) {
+      // <p>…</p> → <ul><li>…</li></ul>
+      const wrapper = Fragment.from(task_list.create(null, task_item.create({ checked: false })));
+      tr.step(new ReplaceAroundStep(pos, end, pos + 1, end - 1, new Slice(wrapper, 0, 0), 2, true));
+      // 前後の task_list と結合（後ろ→前の順）
+      for (const p of [end + 2, pos]) {
+        const $p = tr.doc.resolve(p);
+        if ($p.nodeBefore?.type === task_list && $p.nodeAfter?.type === task_list) tr.join(p);
       }
+    } else {
+      // <li>…</li> → （</ul>）<p>…</p>（<ul>）。前後に項目があればリストを分割する
+      const $pos = tr.doc.resolve(pos);
+      const first = $pos.index() === 0;
+      const last = $pos.index() === $pos.parent.childCount - 1;
+      const nodes = [first ? null : task_list.create(), paragraph.create(), last ? null : task_list.create()];
+      const slice = new Slice(Fragment.from(nodes.filter((n) => n !== null)), first ? 0 : 1, last ? 0 : 1);
+      tr.step(
+        new ReplaceAroundStep(
+          first ? $pos.before() : pos,
+          last ? $pos.after() : end,
+          pos + 1,
+          end - 1,
+          slice,
+          first ? 1 : 2,
+          true,
+        ),
+      );
     }
-    return newPos[0] + 1;
-  };
-  const newAnchor = remap(anchor);
-  const newHead = remap(head);
-
-  tr.replaceWith(start, end, Fragment.from(nodes));
-  const base = tr.steps.length;
-  // 前後の task_list と結合（後ろ→前の順で位置ずれを避ける）
-  for (const p of [cursor, start]) {
-    const $p = tr.doc.resolve(tr.mapping.slice(base).map(p));
-    if ($p.nodeBefore?.type === task_list && $p.nodeAfter?.type === task_list) tr.join($p.pos);
   }
-  const map = tr.mapping.slice(base);
-  tr.setSelection(TextSelection.create(tr.doc, map.map(newAnchor), map.map(newHead)));
   return true;
 }
 
