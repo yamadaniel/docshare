@@ -3,6 +3,7 @@ import { TITLE_MAX, sanitizeTitle } from "../shared/constants";
 import { createView } from "./editor";
 import { createToolbar } from "./toolbar";
 import { h, toast } from "./dom";
+import { createHistorySheet } from "./history";
 import { nameModal } from "./modal";
 import { removeRecent, touchRecent } from "./recent";
 import { DocConnection } from "./sync";
@@ -83,7 +84,10 @@ export function renderDocPage(app: HTMLElement, docId: string, ctx: PageContext)
       presence.classList.toggle("online", next);
       banner.hidden = next || !view;
     },
-    onTitle: applyTitle,
+    onTitle(next) {
+      applyTitle(next);
+      historySheet.refresh();
+    },
     onPresence(userIds) {
       presence.textContent = String(userIds.length);
       presence.setAttribute("aria-label", `接続中 ${userIds.length}人`);
@@ -95,8 +99,9 @@ export function renderDocPage(app: HTMLElement, docId: string, ctx: PageContext)
         ctx.setUser({ ...me, name });
         nameChip.textContent = name;
       }
+      historySheet.rename(userId, name);
     },
-    onRevision() {},
+    onRevision: () => historySheet.refresh(),
     onNotFound() {
       removeRecent(docId);
       ctx.showNotFound();
@@ -111,8 +116,10 @@ export function renderDocPage(app: HTMLElement, docId: string, ctx: PageContext)
     },
   });
 
+  const historySheet = createHistorySheet({ docId, restore: (revId) => conn.sendRestore(revId) });
+
   const toolbar = createToolbar(() => view, {
-    onHistory: () => toast("履歴は未実装"),
+    onHistory: () => historySheet.open(),
     async onShare() {
       const url = `${location.origin}/d/${docId}`;
       if (navigator.share) {
@@ -164,6 +171,7 @@ export function renderDocPage(app: HTMLElement, docId: string, ctx: PageContext)
 
   return () => {
     conn.destroy();
+    historySheet.destroy();
     view?.destroy();
     toolbar.destroy();
   };
