@@ -6,7 +6,7 @@
     <meta name="referrer" content="no-referrer" />
     <meta name="color-scheme" content="light dark" />
     <title>docshare とは</title>
-    <meta name="description" content="リンクを知っていれば誰でも一緒に書ける、ログイン不要の軽量な共同編集メモ。" />
+    <meta name="description" content="リンクを送るだけで、一緒に書けるメモ。ログインもアプリもいらない、軽い共同編集メモ。" />
     <script>
       // 選んだテーマを描画前に適用する（ちらつき防止）
       try {
@@ -14,204 +14,429 @@
         if (t === "light" || t === "dark") document.documentElement.dataset.theme = t;
       } catch (e) {}
     </script>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=Zen+Kaku+Gothic+New:wght@500;700;900&display=swap" rel="stylesheet" />
     <style>
       :root {
-        --bg: #ffffff;
-        --fg: #1c1c1e;
-        --muted: #6b6b70;
-        --line: #e2e2e6;
-        --surface: #f5f5f7;
+        --bg: #f4f5f7;
+        --paper: #ffffff;
+        --ink: #16181d;
+        --sub: #5d6270;
+        --line: #dfe2e8;
         --accent: #2563eb;
-        --accent-fg: #ffffff;
-        --tint: #eaf1ff;
-        --c1: #f97316;
-        --c2: #16a34a;
+        --accent-ink: #ffffff;
+        --c1: #ea6a1f;
+        --c2: #11915a;
       }
       @media (prefers-color-scheme: dark) {
         :root:not([data-theme="light"]) {
-          --bg: #131315;
-          --fg: #ececf0;
-          --muted: #9a9aa2;
-          --line: #2c2c31;
-          --surface: #1e1e22;
+          --bg: #0f1115;
+          --paper: #181b21;
+          --ink: #eceef2;
+          --sub: #9aa0ad;
+          --line: #2a2e37;
           --accent: #6ea0ff;
-          --accent-fg: #0b1220;
-          --tint: #1d2840;
-          --c1: #fb923c;
-          --c2: #4ade80;
+          --accent-ink: #0b1220;
+          --c1: #ff9a5c;
+          --c2: #4fd18f;
         }
       }
       :root[data-theme="dark"] {
-        --bg: #131315;
-        --fg: #ececf0;
-        --muted: #9a9aa2;
-        --line: #2c2c31;
-        --surface: #1e1e22;
+        --bg: #0f1115;
+        --paper: #181b21;
+        --ink: #eceef2;
+        --sub: #9aa0ad;
+        --line: #2a2e37;
         --accent: #6ea0ff;
-        --accent-fg: #0b1220;
-        --tint: #1d2840;
-        --c1: #fb923c;
-        --c2: #4ade80;
+        --accent-ink: #0b1220;
+        --c1: #ff9a5c;
+        --c2: #4fd18f;
         color-scheme: dark;
       }
       :root[data-theme="light"] { color-scheme: light; }
+
       * { box-sizing: border-box; }
       html { -webkit-text-size-adjust: 100%; }
       body {
         margin: 0;
         background: var(--bg);
-        color: var(--fg);
-        font: 16px/1.7 system-ui, -apple-system, "Hiragino Sans", "Noto Sans JP", sans-serif;
+        color: var(--ink);
+        font: 16px/1.8 "Zen Kaku Gothic New", system-ui, -apple-system, "Hiragino Sans", "Noto Sans JP", sans-serif;
+        font-weight: 500;
         overflow-wrap: anywhere;
+        line-break: strict;
       }
-      main { max-width: 640px; margin: 0 auto; padding: 16px 16px 48px; }
-      .top { display: flex; align-items: center; justify-content: space-between; min-height: 44px; }
-      .brand { font-weight: 700; color: inherit; text-decoration: none; }
+      img { display: block; max-width: 100%; }
       a { color: var(--accent); }
-      h1 { font-size: 28px; line-height: 1.35; margin: 32px 0 12px; }
-      h2 { font-size: 19px; margin: 40px 0 12px; }
-      .lead { color: var(--muted); margin: 0 0 24px; }
+      a:focus-visible, .btn:focus-visible { outline: 3px solid var(--accent); outline-offset: 3px; }
+
+      /* ---- 上部バー ---- */
+      .bar {
+        position: fixed; inset: 0 0 auto; z-index: 20;
+        display: flex; align-items: center; justify-content: space-between;
+        height: 52px; padding: 0 16px;
+        background: color-mix(in srgb, var(--bg) 72%, transparent);
+        -webkit-backdrop-filter: saturate(1.6) blur(18px);
+        backdrop-filter: saturate(1.6) blur(18px);
+        border-bottom: 1px solid color-mix(in srgb, var(--line) 70%, transparent);
+      }
+      .brand { color: inherit; text-decoration: none; font-weight: 900; letter-spacing: .02em; }
       .btn {
         display: inline-flex; align-items: center; justify-content: center;
-        min-height: 48px; padding: 0 24px; border-radius: 12px;
-        background: var(--accent); color: var(--accent-fg);
-        font-weight: 600; text-decoration: none;
+        min-height: 48px; padding: 0 28px; border-radius: 999px;
+        background: var(--accent); color: var(--accent-ink);
+        font-weight: 700; text-decoration: none;
       }
-      svg { display: block; }
-      .hero-ill { margin: 32px auto 0; width: 100%; max-width: 420px; height: auto; }
-      .f { fill: var(--bg); stroke: var(--line); stroke-width: 2; }
-      .s { fill: var(--surface); }
-      .bar { fill: var(--line); }
-      .bar-m { fill: var(--muted); opacity: .45; }
-      .ac { fill: var(--accent); }
-      .acs { fill: none; stroke: var(--accent); stroke-width: 2.4; stroke-linecap: round; stroke-linejoin: round; }
-      .tint { fill: var(--tint); }
-      .c1 { fill: var(--c1); } .c2 { fill: var(--c2); }
-      .c1s { stroke: var(--c1); stroke-width: 2.4; stroke-linecap: round; }
-      .c2s { stroke: var(--c2); stroke-width: 2.4; stroke-linecap: round; }
-      .lbl { fill: #fff; font: 700 11px system-ui, sans-serif; }
-      .features { list-style: none; margin: 0; padding: 0; display: grid; gap: 12px; }
-      .features li {
-        display: grid; grid-template-columns: 52px 1fr; gap: 14px; align-items: center;
-        padding: 14px 16px; border: 1px solid var(--line); border-radius: 12px;
+      .btn.small { min-height: 34px; padding: 0 16px; font-size: 14px; }
+
+      /* ---- スクロールで進む場面 ---- */
+      .scene { position: relative; }
+      .stage { position: sticky; top: 0; height: 100vh; height: 100svh; overflow: hidden; }
+      .lerp-in { opacity: clamp(0, calc((var(--p, 1) - var(--t, 0)) * 7), 1); }
+
+      /* 1. 冒頭 */
+      .hero { height: 230vh; --p: 0; }
+      .hero .stage { display: grid; place-items: center; padding: 52px 16px 0; }
+      .hero-copy {
+        position: absolute; inset: 0; display: grid; place-content: center; text-align: center; padding: 0 16px;
+        opacity: clamp(0, calc(1 - var(--p) * 2.4), 1);
+        transform: translateY(calc(var(--p) * -14vh)) scale(calc(1 - var(--p) * .12));
       }
-      .features svg { width: 52px; height: 52px; }
-      .features b { display: block; }
-      .features span { color: var(--muted); font-size: 15px; }
-      ol.steps { list-style: none; margin: 0; padding: 0; display: grid; gap: 12px; counter-reset: step; }
-      ol.steps li {
-        display: grid; grid-template-columns: 72px 1fr; gap: 14px; align-items: center;
-        padding: 12px 16px; border-radius: 12px; background: var(--surface);
+      .hero h1 {
+        margin: 0; font-weight: 900; letter-spacing: -.01em;
+        font-size: clamp(30px, 8.4vw, 112px); line-height: 1.16;
       }
-      ol.steps svg { width: 72px; height: 72px; }
-      ol.steps .n { display: block; color: var(--accent); font-weight: 700; font-size: 13px; }
-      .note {
-        display: grid; grid-template-columns: 52px 1fr; gap: 14px; align-items: center;
-        padding: 14px 16px; border-radius: 12px; background: var(--surface); font-size: 15px;
+      .hero-sub { margin: 20px auto 28px; max-width: 30em; color: var(--sub); font-size: clamp(15px, 2.2vw, 19px); }
+      .hero-copy .btn { justify-self: center; }
+      .hint { margin: 36px 0 0; color: var(--sub); font-size: 13px; }
+
+      .phone {
+        position: relative; width: min(300px, 72vw); aspect-ratio: 9 / 18.5;
+        border-radius: 44px; padding: 12px; background: #1b1d22;
+        box-shadow: 0 0 0 1.5px #3a3d45 inset, 0 0 0 1px rgba(255, 255, 255, .14), 0 40px 80px -30px rgba(10, 20, 50, .45);
+        transform: translateY(calc((1 - var(--p)) * 64vh)) scale(calc(.86 + var(--p) * .14));
       }
-      .note svg { width: 52px; height: 52px; }
-      .note p { margin: 0; }
-      .note p + p { margin-top: 6px; }
-      .end { margin-top: 40px; text-align: center; }
-      @media (min-width: 600px) {
-        .features { grid-template-columns: 1fr 1fr; }
+      .screen {
+        height: 100%; border-radius: 33px; overflow: hidden; background: var(--paper); color: var(--ink);
+        padding: 42px 18px 18px; font-size: 14px; line-height: 1.6;
+      }
+      .doc-head { display: flex; justify-content: space-between; align-items: baseline; gap: 8px; margin-bottom: 14px; }
+      .doc-title { font-weight: 900; font-size: 18px; }
+      .who { display: flex; gap: 4px; }
+      .who i { width: 20px; height: 20px; border-radius: 50%; display: grid; place-items: center; color: #fff; font: 700 10px/1 system-ui, sans-serif; }
+      .screen ul { list-style: none; margin: 0; padding: 0; display: grid; gap: 9px; }
+      .screen li { display: flex; align-items: center; gap: 9px; }
+      .box { flex: none; width: 17px; height: 17px; border-radius: 5px; border: 1.6px solid var(--sub); position: relative; }
+      .box.on { background: var(--accent); border-color: var(--accent); }
+      .box.on::after { content: ""; position: absolute; left: 5px; top: 1.5px; width: 4px; height: 8px; border: solid #fff; border-width: 0 2px 2px 0; transform: rotate(45deg); }
+      .done { color: var(--sub); text-decoration: line-through; }
+      .caret { display: inline-block; width: 2px; height: 1.1em; vertical-align: -2px; margin-left: 1px; border-radius: 1px; }
+      .tag { font: 700 10px/1 system-ui, sans-serif; color: #fff; padding: 3px 5px; border-radius: 4px; margin-left: 4px; vertical-align: 2px; }
+      .bg-c1 { background: var(--c1); } .bg-c2 { background: var(--c2); }
+
+      /* 2. 写真が広がる */
+      .reveal { height: 240vh; --p: 0; }
+      .reveal-frame {
+        position: absolute; inset: 0;
+        clip-path: inset(calc((1 - var(--p)) * 22%) calc((1 - var(--p)) * 12%) round calc((1 - var(--p)) * 32px));
+      }
+      .reveal-frame img {
+        width: 100%; height: 100%; object-fit: cover; object-position: 60% 50%;
+        transform: scale(calc(1.18 - var(--p) * .18));
+      }
+      .reveal-frame::after { content: ""; position: absolute; inset: 0; background: linear-gradient(180deg, transparent 35%, rgba(8, 10, 14, .75)); }
+      .reveal-copy {
+        position: absolute; left: 0; right: 0; bottom: 9vh; z-index: 1; padding: 0 24px;
+        max-width: 1120px; margin: 0 auto; color: #fff;
+        opacity: clamp(0, calc((var(--p) - .5) * 4), 1);
+        transform: translateY(calc((1 - clamp(0, (var(--p) - .5) * 3, 1)) * 30px));
+      }
+      .reveal-copy h2 { margin: 0 0 10px; font-weight: 900; font-size: clamp(30px, 6vw, 64px); line-height: 1.2; }
+      .reveal-copy p { margin: 0; color: rgba(255, 255, 255, .85); max-width: 30em; }
+
+      /* 3. 離れた二人 */
+      .duo { height: 320vh; --p: 0; }
+      .duo .stage { display: grid; align-content: center; gap: 28px; padding: 72px 16px 24px; }
+      .duo-title { text-align: center; margin: 0; font-weight: 900; font-size: clamp(28px, 5.4vw, 56px); line-height: 1.25; }
+      .duo-grid {
+        display: grid; grid-template-columns: 1fr minmax(260px, 340px) 1fr; gap: clamp(12px, 3vw, 40px);
+        align-items: center; max-width: 1120px; margin: 0 auto; width: 100%;
+      }
+      .person { margin: 0; opacity: clamp(0, calc(var(--p) * 5), 1); }
+      .person img { width: 100%; aspect-ratio: 4 / 5; object-fit: cover; border-radius: 22px; }
+      .person figcaption { margin-top: 10px; font-size: 14px; color: var(--sub); display: flex; align-items: center; gap: 8px; }
+      .person figcaption b { color: var(--ink); }
+      .dot { width: 10px; height: 10px; border-radius: 50%; flex: none; }
+      .person.left { transform: translateX(calc((1 - clamp(0, var(--p) * 3, 1)) * -40px)); }
+      .person.right { transform: translateX(calc((1 - clamp(0, var(--p) * 3, 1)) * 40px)); }
+      .person.left img { object-position: 62% 50%; }
+      .person.right img { object-position: 45% 30%; }
+      .memo {
+        background: var(--paper); border-radius: 22px; padding: 20px 20px 22px;
+        box-shadow: 0 1px 0 var(--line), 0 30px 60px -30px rgba(10, 20, 50, .35);
+      }
+      .memo .doc-title { margin-bottom: 12px; }
+      .memo ul { list-style: none; margin: 0; padding: 0; display: grid; gap: 10px; }
+      .memo li { display: flex; align-items: center; gap: 10px; }
+      .memo li[style] {
+        opacity: clamp(0, calc((var(--p) - var(--t)) * 7), 1);
+        transform: translateY(calc((1 - clamp(0, (var(--p) - var(--t)) * 7, 1)) * 6px));
+      }
+
+      /* 4. 使いみち */
+      .uses { padding: 18vh 16px 14vh; }
+      .uses-inner { max-width: 1120px; margin: 0 auto; display: grid; grid-template-columns: 1.1fr 1fr; gap: clamp(24px, 6vw, 80px); align-items: center; }
+      .uses-photo { border-radius: 26px; overflow: hidden; }
+      .uses-photo img { width: 100%; aspect-ratio: 5 / 4; object-fit: cover; transform: translateY(calc((var(--p, .5) - .5) * -40px)) scale(1.1); }
+      .uses h2 { margin: 0 0 24px; font-weight: 900; font-size: clamp(28px, 4.6vw, 48px); line-height: 1.3; }
+      .uses dl { margin: 0; }
+      .uses dt { font-weight: 700; font-size: 18px; }
+      .uses dd { margin: 2px 0 18px; color: var(--sub); }
+
+      /* 5. 共有 */
+      .share { height: 220vh; --p: 0; }
+      .share .stage { background: #1d2127; color: #fff; }
+      .share-photo { position: absolute; inset: 0; }
+      .share-photo img { width: 100%; height: 100%; object-fit: cover; object-position: 58% 50%; transform: scale(calc(1.08 - var(--p) * .08)); }
+      .share-photo::after { content: ""; position: absolute; inset: 0; background: linear-gradient(180deg, rgba(8, 10, 14, .55), transparent 55%); }
+      .share-copy { position: absolute; left: 0; right: 0; top: 14vh; z-index: 1; padding: 0 24px; max-width: 1120px; margin: 0 auto; }
+      .share-copy h2 { margin: 0 0 10px; font-weight: 900; font-size: clamp(32px, 7vw, 80px); line-height: 1.15; }
+      .share-copy p { margin: 0; max-width: 24em; color: rgba(255, 255, 255, .88); }
+      .link-pill {
+        position: absolute; left: 50%; top: 64%; z-index: 1;
+        display: flex; align-items: center; gap: 8px; white-space: nowrap;
+        padding: 12px 18px; border-radius: 999px; background: rgba(255, 255, 255, .95); color: #16181d;
+        font: 600 14px/1 system-ui, sans-serif; box-shadow: 0 20px 40px -16px rgba(0, 0, 0, .5);
+        opacity: clamp(0, calc((var(--p) - .25) * 5), 1);
+        transform: translate(calc(-50% + (1 - clamp(0, (var(--p) - .25) * 2, 1)) * 12vw), calc((1 - clamp(0, (var(--p) - .25) * 2, 1)) * 40px));
+      }
+      .link-pill svg { width: 18px; height: 18px; color: #2563eb; }
+      .link-pill span { color: #6b7180; }
+
+      /* 6. できること */
+      .more { padding: 16vh 16px 6vh; }
+      .more-inner, .steps-inner { max-width: 1120px; margin: 0 auto; }
+      .more h2, .steps h2 { margin: 0 0 32px; font-weight: 900; font-size: clamp(28px, 4.6vw, 48px); line-height: 1.3; }
+      .more dl { margin: 0; display: grid; grid-template-columns: repeat(3, 1fr); gap: 0 clamp(20px, 4vw, 48px); }
+      .more dl > div { padding: 20px 0; border-top: 1px solid var(--line); }
+      .more dt { font-weight: 700; font-size: 18px; margin-bottom: 4px; }
+      .more dd { margin: 0; color: var(--sub); font-size: 15px; }
+
+      /* 7. 始め方 */
+      .steps { padding: 10vh 16px; }
+      .steps ol { list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: repeat(3, 1fr); gap: clamp(16px, 3vw, 32px); counter-reset: s; }
+      .steps li { counter-increment: s; background: var(--paper); border-radius: 22px; padding: 22px 22px 26px; }
+      .steps li::before { content: counter(s); display: grid; place-items: center; width: 34px; height: 34px; border-radius: 50%; background: var(--accent); color: var(--accent-ink); font-weight: 900; margin-bottom: 14px; }
+      .steps li b { display: block; font-size: 18px; margin-bottom: 4px; }
+      .steps li span { color: var(--sub); font-size: 15px; }
+
+      /* 8. 締め */
+      .closing { padding: 12vh 16px 10vh; text-align: center; }
+      .closing h2 { margin: 0 0 14px; font-weight: 900; font-size: clamp(32px, 6vw, 64px); line-height: 1.2; }
+      .closing .note { max-width: 34em; margin: 0 auto 32px; color: var(--sub); font-size: 15px; }
+      footer { padding: 28px 16px 40px; border-top: 1px solid var(--line); color: var(--sub); font-size: 12px; line-height: 1.7; }
+      footer p { max-width: 1120px; margin: 0 auto 6px; }
+      footer a { color: inherit; }
+
+      /* ---- 狭い画面 ---- */
+      @media (max-width: 760px) {
+        .duo .stage { gap: 14px; padding-top: 60px; }
+        .duo-title { font-size: 26px; }
+        .duo-grid { grid-template-columns: 1fr 1fr; gap: 10px 12px; }
+        .memo { grid-column: 1 / -1; grid-row: 2; padding: 16px; }
+        .person img { aspect-ratio: 4 / 3; max-height: 24svh; border-radius: 16px; }
+        .person figcaption { font-size: 12px; margin-top: 6px; }
+        .uses-inner { grid-template-columns: 1fr; }
+        .more dl { grid-template-columns: 1fr; }
+        .steps ol { grid-template-columns: 1fr; }
+        .link-pill { font-size: 12px; padding: 10px 14px; }
+      }
+      @media (max-height: 720px) and (max-width: 760px) {
+        .memo li:nth-child(n+5) { display: none; }
+      }
+
+      /* ---- 動きを減らす設定 ---- */
+      @media (prefers-reduced-motion: reduce) {
+        .scene { height: auto; --p: 1; }
+        .stage { position: relative; height: auto; min-height: 100svh; }
+        .hero .stage { padding: 96px 16px 64px; gap: 40px; }
+        .hero-copy { position: static; opacity: 1; transform: none; }
+        .hint { display: none; }
+        .reveal-frame::after { display: none; }
+        .share .stage { min-height: 80svh; }
       }
     </style>
   </head>
   <body>
+    <header class="bar">
+      <a class="brand" href="/">docshare</a>
+      <a class="btn small" href="/">使ってみる</a>
+    </header>
+
     <main>
-      <div class="top">
-        <a class="brand" href="/">docshare</a>
-        <a href="/">使ってみる</a>
-      </div>
-
-      <h1>リンクを送るだけで、<br />一緒に書けるメモ。</h1>
-      <p class="lead">ログインもアプリも不要。文書を作ってリンクを渡せば、受け取った人もその場で編集できる。</p>
-      <a class="btn" href="/">文書を作る</a>
-
-      <svg class="hero-ill" viewBox="0 0 340 200" role="img" aria-label="2 台のスマホで同じメモを同時に編集している様子">
-        <g transform="translate(8 8)">
-          <rect class="f" x="0" y="0" width="118" height="184" rx="18"/>
-          <rect class="bar" x="44" y="10" width="30" height="4" rx="2"/>
-          <rect class="bar-m" x="14" y="28" width="62" height="8" rx="4"/>
-          <g transform="translate(14 50)">
-            <rect class="ac" width="13" height="13" rx="3"/><path d="M3 6.5l2.6 2.6L10 4" fill="none" stroke="#fff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
-            <rect class="bar" x="20" y="4" width="40" height="5" rx="2.5"/>
-          </g>
-          <g transform="translate(14 74)">
-            <rect class="ac" width="13" height="13" rx="3"/><path d="M3 6.5l2.6 2.6L10 4" fill="none" stroke="#fff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
-            <rect class="bar" x="20" y="4" width="30" height="5" rx="2.5"/>
-          </g>
-          <g transform="translate(14 98)">
-            <rect class="f" width="13" height="13" rx="3" style="stroke:var(--muted);stroke-width:1.6"/>
-            <rect class="bar-m" x="20" y="4" width="52" height="5" rx="2.5"/>
-          </g>
-          <g transform="translate(14 122)">
-            <rect class="f" width="13" height="13" rx="3" style="stroke:var(--muted);stroke-width:1.6"/>
-            <rect class="bar-m" x="20" y="4" width="36" height="5" rx="2.5"/>
-          </g>
-          <line class="c1s" x1="88" y1="98" x2="88" y2="114"/>
-          <rect class="c1" x="88" y="84" width="18" height="14" rx="4"/>
-        </g>
-        <g transform="translate(214 8)">
-          <rect class="f" x="0" y="0" width="118" height="184" rx="18"/>
-          <rect class="bar" x="44" y="10" width="30" height="4" rx="2"/>
-          <rect class="bar-m" x="14" y="28" width="62" height="8" rx="4"/>
-          <g transform="translate(14 50)">
-            <rect class="ac" width="13" height="13" rx="3"/><path d="M3 6.5l2.6 2.6L10 4" fill="none" stroke="#fff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
-            <rect class="bar" x="20" y="4" width="40" height="5" rx="2.5"/>
-          </g>
-          <g transform="translate(14 74)">
-            <rect class="ac" width="13" height="13" rx="3"/><path d="M3 6.5l2.6 2.6L10 4" fill="none" stroke="#fff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
-            <rect class="bar" x="20" y="4" width="30" height="5" rx="2.5"/>
-          </g>
-          <g transform="translate(14 98)">
-            <rect class="f" width="13" height="13" rx="3" style="stroke:var(--muted);stroke-width:1.6"/>
-            <rect class="bar-m" x="20" y="4" width="52" height="5" rx="2.5"/>
-          </g>
-          <g transform="translate(14 122)">
-            <rect class="f" width="13" height="13" rx="3" style="stroke:var(--muted);stroke-width:1.6"/>
-            <rect class="bar-m" x="20" y="4" width="36" height="5" rx="2.5"/>
-          </g>
-          <line class="c2s" x1="72" y1="122" x2="72" y2="138"/>
-          <rect class="c2" x="72" y="108" width="18" height="14" rx="4"/>
-        </g>
-        <path d="M134 70 C 160 44, 180 44, 206 70" fill="none" stroke="var(--muted)" stroke-width="2" stroke-dasharray="4 5"/>
-        <path d="M134 140 C 160 166, 180 166, 206 140" fill="none" stroke="var(--muted)" stroke-width="2" stroke-dasharray="4 5"/>
-        <circle class="tint" cx="170" cy="104" r="26"/>
-        <g class="acs" transform="translate(158 92)">
-          <path d="M10 14a5 5 0 0 0 7 0l4-4a5 5 0 0 0-7-7l-1.5 1.5"/>
-          <path d="M14 10a5 5 0 0 0-7 0l-4 4a5 5 0 0 0 7 7l1.5-1.5"/>
-        </g>
-      </svg>
-
-      <h2>できること</h2>
-      <ul class="features">
-        <li><svg viewBox="0 0 52 52" aria-hidden="true"><rect class="tint" width="52" height="52" rx="14"/><rect class="f" x="10" y="12" width="32" height="28" rx="5"/><rect class="bar" x="15" y="19" width="14" height="4" rx="2"/><rect class="bar" x="15" y="29" width="20" height="4" rx="2"/><line class="c1s" x1="31" y1="17" x2="31" y2="25"/><line class="c2s" x1="37" y1="27" x2="37" y2="35"/></svg><div><b>同時に編集</b><span>同じ文書を開いている人の入力がすぐに反映される。</span></div></li>
-        <li><svg viewBox="0 0 52 52" aria-hidden="true"><rect class="tint" width="52" height="52" rx="14"/><rect class="ac" x="12" y="12" width="12" height="12" rx="3"/><path d="M15 18l2.4 2.4L21.5 16" fill="none" stroke="#fff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/><rect class="bar-m" x="28" y="15.5" width="13" height="5" rx="2.5"/><rect class="f" x="12" y="29" width="12" height="12" rx="3" style="stroke:var(--muted);stroke-width:1.6"/><rect class="bar-m" x="28" y="32.5" width="10" height="5" rx="2.5"/></svg><div><b>チェックボックス</b><span>行頭で「[ ]」と空白を打つか ☑ ボタンで、やることリストになる。</span></div></li>
-        <li><svg viewBox="0 0 52 52" aria-hidden="true"><rect class="tint" width="52" height="52" rx="14"/><text x="9" y="25" style="fill:var(--accent);font:800 14px system-ui,sans-serif">B</text><text x="20" y="25" style="fill:var(--accent);font:italic 600 14px Georgia,serif">I</text><text x="29" y="25" style="fill:var(--accent);font:600 14px system-ui,sans-serif;text-decoration:underline">U</text><g class="acs" transform="translate(16 28) scale(.8)"><path d="M10 14a5 5 0 0 0 7 0l4-4a5 5 0 0 0-7-7l-1.5 1.5"/><path d="M14 10a5 5 0 0 0-7 0l-4 4a5 5 0 0 0 7 7l1.5-1.5"/></g></svg><div><b>太字・斜体・下線・リンク</b><span>URL を貼るとそのままリンクになる。</span></div></li>
-        <li><svg viewBox="0 0 52 52" aria-hidden="true"><rect class="tint" width="52" height="52" rx="14"/><g class="acs"><path d="M14 26a12 12 0 1 0 3.5-8.5"/><path d="M13 13v6h6"/><path d="M26 20v7l5 3"/></g></svg><div><b>編集履歴</b><span>誰がいつ書いたかが残り、どの版にも戻せる。</span></div></li>
-        <li><svg viewBox="0 0 52 52" aria-hidden="true"><rect class="tint" width="52" height="52" rx="14"/><g fill="none" stroke="var(--accent)" stroke-width="2.2" stroke-linecap="round"><path d="M26 17a9 9 0 0 0 0 18Z"/><path d="M26 9v3M14.7 13.7l2.1 2.1M10 26h3M14.7 38.3l2.1-2.1M26 40v3"/></g><path d="M26 17a9 9 0 0 1 0 18Z" class="ac"/></svg><div><b>ライト・ダーク</b><span>画面上の太陽と月のボタンで切り替える。</span></div></li>
-        <li><svg viewBox="0 0 52 52" aria-hidden="true"><rect class="tint" width="52" height="52" rx="14"/><rect class="f" x="12" y="10" width="24" height="32" rx="4"/><rect class="bar" x="17" y="17" width="14" height="3.5" rx="1.7"/><rect class="bar" x="17" y="24" width="10" height="3.5" rx="1.7"/><rect class="bar" x="17" y="31" width="12" height="3.5" rx="1.7"/><path class="ac" d="M38 26l2 5 5 2-5 2-2 5-2-5-5-2 5-2z"/></svg><div><b>AI にも読める</b><span>リンクを Claude・ChatGPT・Gemini などに渡すと本文を読める。</span></div></li>
-      </ul>
-
-      <h2>使い方</h2>
-      <ol class="steps">
-        <li><svg viewBox="0 0 72 72" aria-hidden="true"><rect class="tint" width="72" height="72" rx="18"/><circle class="ac" cx="36" cy="27" r="9"/><path class="ac" d="M20 52a16 13 0 0 1 32 0z"/><rect class="f" x="40" y="40" width="22" height="14" rx="4"/><rect class="bar-m" x="44" y="45.5" width="12" height="3.5" rx="1.7"/></svg><div><span class="n">STEP 1</span>はじめに名前を決める（編集履歴に表示される。あとで変えられる）。</div></li>
-        <li><svg viewBox="0 0 72 72" aria-hidden="true"><rect class="tint" width="72" height="72" rx="18"/><rect class="f" x="20" y="14" width="28" height="40" rx="5"/><rect class="bar" x="25" y="22" width="16" height="4" rx="2"/><rect class="bar" x="25" y="30" width="12" height="4" rx="2"/><circle class="ac" cx="48" cy="50" r="11"/><path d="M48 44v12M42 50h12" stroke="#fff" stroke-width="2.6" stroke-linecap="round"/></svg><div><span class="n">STEP 2</span>「新しい文書」で文書を作る。</div></li>
-        <li><svg viewBox="0 0 72 72" aria-hidden="true"><rect class="tint" width="72" height="72" rx="18"/><g class="acs"><path d="M36 42V18"/><path d="M27 26l9-9 9 9"/><path d="M22 34v14a4 4 0 0 0 4 4h20a4 4 0 0 0 4-4V34"/></g></svg><div><span class="n">STEP 3</span>「共有」からリンクを送る。</div></li>
-      </ol>
-
-      <h2>気をつけること</h2>
-      <div class="note">
-        <svg viewBox="0 0 52 52" aria-hidden="true"><rect class="tint" width="52" height="52" rx="14"/><path class="acs" d="M26 10l13 5v10c0 8-5.5 14-13 17-7.5-3-13-9-13-17V15z"/><path d="M26 19v9" stroke="var(--accent)" stroke-width="2.6" stroke-linecap="round"/><circle class="ac" cx="26" cy="33.5" r="1.8"/></svg>
-        <div>
-        <p>リンクを知っている人は誰でも読み書きできる。パスワードなど人に見られて困ることは書かない。</p>
-        <p>文書は検索エンジンには載らない。</p>
+      <section class="scene hero">
+        <div class="stage">
+          <div class="hero-copy">
+            <h1>リンクを送るだけで、<br />一緒に書けるメモ。</h1>
+            <p class="hero-sub">ログインもアプリもいらない。文書を作ってリンクを渡せば、受け取った人もその場で書き込める。</p>
+            <a class="btn" href="/">文書を作る</a>
+            <p class="hint">スクロールして見る</p>
+          </div>
+          <div class="phone" aria-hidden="true">
+            <div class="screen">
+              <div class="doc-head">
+                <span class="doc-title">週末の買い出し</span>
+                <span class="who"><i class="bg-c1">さ</i><i class="bg-c2">け</i></span>
+              </div>
+              <ul>
+                <li><span class="box on"></span><span class="done">牛乳</span></li>
+                <li><span class="box on"></span><span class="done">卵 10個</span></li>
+                <li class="lerp-in" style="--t: .35"><span class="box"></span><span>キャベツ 半玉</span></li>
+                <li class="lerp-in" style="--t: .5"><span class="box"></span><span>食パン 6枚切り<span class="caret bg-c1"></span><span class="tag bg-c1">さき</span></span></li>
+                <li class="lerp-in" style="--t: .65"><span class="box"></span><span>豆腐<span class="caret bg-c2"></span><span class="tag bg-c2">けんた</span></span></li>
+              </ul>
+            </div>
+          </div>
         </div>
-      </div>
+      </section>
 
-      <p class="end"><a class="btn" href="/">文書を作る</a></p>
+      <section class="scene reveal">
+        <div class="stage">
+          <div class="reveal-frame">
+            <img src="/about-img/hands-phone.webp" width="800" height="534" alt="スマートフォンを両手で持って操作する女性の手元" />
+          </div>
+          <div class="reveal-copy">
+            <h2>書いたそばから、<br />相手の画面に。</h2>
+            <p>同じ文書を開いている人の入力は、保存ボタンを押さなくてもそのまま届く。</p>
+          </div>
+        </div>
+      </section>
+
+      <section class="scene duo">
+        <div class="stage">
+          <h2 class="duo-title">離れていても、<br />同じ一枚を。</h2>
+          <div class="duo-grid">
+            <figure class="person left">
+              <img src="/about-img/window.webp" width="800" height="533" alt="窓辺で手元の画面を見る女性の後ろ姿" loading="lazy" />
+              <figcaption><span class="dot bg-c1"></span><b>さき</b>旅先から</figcaption>
+            </figure>
+            <div class="memo" aria-hidden="true">
+              <div class="doc-title">旅行の持ち物</div>
+              <ul>
+                <li><span class="box on"></span><span class="done">充電器</span></li>
+                <li style="--t: .2"><span class="box on"></span><span class="done">折りたたみ傘</span></li>
+                <li style="--t: .35"><span class="box"></span><span>帰りの切符<span class="caret bg-c1"></span><span class="tag bg-c1">さき</span></span></li>
+                <li style="--t: .55"><span class="box"></span><span>お土産リスト<span class="caret bg-c2"></span><span class="tag bg-c2">けんた</span></span></li>
+                <li style="--t: .72"><span class="box"></span><span>宿の住所</span></li>
+              </ul>
+            </div>
+            <figure class="person right">
+              <img src="/about-img/suit-phone.webp" width="800" height="533" alt="スマートフォンを手に持つスーツ姿の男性" loading="lazy" />
+              <figcaption><span class="dot bg-c2"></span><b>けんた</b>会社から</figcaption>
+            </figure>
+          </div>
+        </div>
+      </section>
+
+      <section class="uses">
+        <div class="uses-inner">
+          <div class="uses-photo par">
+            <img src="/about-img/trip-table.webp" width="800" height="686" alt="テーブルに旅行雑誌とお菓子を広げて計画を立てる人たち" loading="lazy" />
+          </div>
+          <div>
+            <h2>決めごとは、<br />みんなで書けば早い。</h2>
+            <dl>
+              <dt>旅行の計画</dt>
+              <dd>行きたい場所と持ち物を、行く人全員で書き足す。</dd>
+              <dt>週末の買い出し</dt>
+              <dd>家族が気づいたものをその場で追加。買ったらチェック。</dd>
+              <dt>打ち合わせのメモ</dt>
+              <dd>話しながら同じメモを書いて、終わったらリンクを残すだけ。</dd>
+            </dl>
+          </div>
+        </div>
+      </section>
+
+      <section class="scene share">
+        <div class="stage">
+          <div class="share-photo">
+            <img src="/about-img/hand-iphone.webp" width="800" height="439" alt="スマートフォンを片手で持つ手元" loading="lazy" />
+          </div>
+          <div class="share-copy">
+            <h2>渡すのは、<br />リンクだけ。</h2>
+            <p>アカウント登録もアプリのインストールもいらない。受け取った人はブラウザで開いて、そのまま書ける。</p>
+          </div>
+          <div class="link-pill" aria-hidden="true">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M10 14a5 5 0 0 0 7 0l3-3a5 5 0 0 0-7-7l-1.2 1.2" /><path d="M14 10a5 5 0 0 0-7 0l-3 3a5 5 0 0 0 7 7l1.2-1.2" /></svg>
+            docshare<span>/d/k3Xa9…</span>
+          </div>
+        </div>
+      </section>
+
+      <section class="more" aria-labelledby="more-title">
+        <div class="more-inner">
+          <h2 id="more-title">メモに要るものは、そろっている。</h2>
+          <dl>
+            <div><dt>チェックボックス</dt><dd>行頭で「[ ]」と空白を打つか、☑ ボタンでやることリストになる。</dd></div>
+            <div><dt>太字・斜体・下線</dt><dd>大事なところだけ目立たせる。</dd></div>
+            <div><dt>リンク</dt><dd>URL を貼るとそのままリンクになる。</dd></div>
+            <div><dt>編集履歴</dt><dd>誰がいつ書いたかが残り、どの版にも戻せる。</dd></div>
+            <div><dt>ライト・ダーク</dt><dd>画面上の太陽と月のボタンで切り替える。</dd></div>
+            <div><dt>AI にも読める</dt><dd>リンクを Claude・ChatGPT・Gemini などに渡すと、本文を読んでもらえる。</dd></div>
+          </dl>
+        </div>
+      </section>
+
+      <section class="steps" aria-labelledby="steps-title">
+        <div class="steps-inner">
+          <h2 id="steps-title">始め方</h2>
+          <ol>
+            <li><b>名前を決める</b><span>編集履歴に表示される。あとで変えられる。</span></li>
+            <li><b>文書を作る</b><span>トップの「新しい文書」を押す。</span></li>
+            <li><b>リンクを送る</b><span>「共有」からリンクを送る。受け取った人もすぐ書ける。</span></li>
+          </ol>
+        </div>
+      </section>
+
+      <section class="closing">
+        <h2>さっそく、一枚。</h2>
+        <p class="note">リンクを知っている人は誰でも読み書きできる。パスワードなど人に見られて困ることは書かない。文書そのものは検索エンジンには載らない。</p>
+        <a class="btn" href="/">文書を作る</a>
+      </section>
     </main>
+
+    <footer>
+      <p>写真：<a href="https://www.pakutaso.com" title="フリー素材「ぱくたそ」">フリー素材「ぱくたそ」</a>。写真の人物と docshare は関係ない（画像はイメージ）。</p>
+      <p>このページで使用している素材は、ぱくたそ［ https://www.pakutaso.com ］のフリー素材を利用しています。二次配布物の受領者がこの素材を継続して利用する場合は、ぱくたそ公式サイトからご自身でダウンロードしていただくか、ぱくたそのご利用規約［ <a href="https://www.pakutaso.com/userpolicy.html">https://www.pakutaso.com/userpolicy.html</a> ］に同意していただく必要があります。</p>
+    </footer>
+
+    <script>
+      // スクロール位置を各場面の進み具合（0〜1）として CSS 変数 --p に渡す
+      (function () {
+        if (matchMedia("(prefers-reduced-motion: reduce)").matches) return;
+        var scenes = Array.prototype.slice.call(document.querySelectorAll(".scene"));
+        var pars = Array.prototype.slice.call(document.querySelectorAll(".par"));
+        var ticking = false;
+        function clamp(v) { return v < 0 ? 0 : v > 1 ? 1 : v; }
+        function update() {
+          ticking = false;
+          var vh = window.innerHeight;
+          scenes.forEach(function (el) {
+            var r = el.getBoundingClientRect();
+            var span = r.height - vh;
+            el.style.setProperty("--p", span > 0 ? clamp(-r.top / span).toFixed(4) : "1");
+          });
+          pars.forEach(function (el) {
+            var r = el.getBoundingClientRect();
+            el.style.setProperty("--p", clamp((vh - r.top) / (vh + r.height)).toFixed(4));
+          });
+        }
+        function request() { if (!ticking) { ticking = true; requestAnimationFrame(update); } }
+        addEventListener("scroll", request, { passive: true });
+        addEventListener("resize", request);
+        update();
+      })();
+    </script>
   </body>
 </html>
