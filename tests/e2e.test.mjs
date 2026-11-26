@@ -351,3 +351,24 @@ test("サーバーが埋め込んだ本文を読み込み中の表示に使い�
   assert.equal(await editorText(p), "サーバー描画の確認");
   await close(p);
 });
+
+test("紹介ページはトップから開け、名前未登録でも名前モーダルなしで読める", async () => {
+  const p = await openAs("About");
+  await p.click(".about-link a");
+  await p.waitForURL(BASE + "/about");
+  await p.waitForSelector("h1");
+  assert.match(await p.textContent("h1"), /一緒に書けるメモ/);
+  await p.click(".btn >> nth=0");
+  await p.waitForSelector(".new-btn");
+  await close(p);
+
+  const { chromium } = await import("playwright-core");
+  const browser = await chromium.launch();
+  const page = await browser.newPage();
+  const res = await page.goto(BASE + "/about");
+  assert.equal(res.status(), 200);
+  assert.equal(res.headers()["referrer-policy"], "no-referrer");
+  assert.equal(await page.$(".overlay"), null);
+  assert.match(await page.textContent("body"), /リンクを知っている人は誰でも読み書きできる/);
+  await browser.close();
+});

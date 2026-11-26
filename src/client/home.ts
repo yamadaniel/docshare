@@ -72,6 +72,7 @@ export function renderHome(app: HTMLElement, ctx: PageContext, navigate: (path: 
             ),
           )
         : h("p", { class: "empty-note" }, "まだ文書を開いていない。"),
+      h("p", { class: "about-link" }, h("a", { href: "/about", "data-reload": "" }, "docshare とは")),
     ),
   );
   return () => themeToggle.destroy();

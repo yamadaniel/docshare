@@ -1,0 +1,143 @@
+<!doctype html>
+<html lang="ja">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+    <meta name="referrer" content="no-referrer" />
+    <meta name="robots" content="noindex" />
+    <meta name="color-scheme" content="light dark" />
+    <title>docshare とは</title>
+    <meta name="description" content="リンクを知っていれば誰でも一緒に書ける、ログイン不要の軽量な共同編集メモ。" />
+    <script>
+      // 選んだテーマを描画前に適用する（ちらつき防止）
+      try {
+        var t = localStorage.getItem("ds.theme");
+        if (t === "light" || t === "dark") document.documentElement.dataset.theme = t;
+      } catch (e) {}
+    </script>
+    <style>
+      :root {
+        --bg: #ffffff;
+        --fg: #1c1c1e;
+        --muted: #6b6b70;
+        --line: #e2e2e6;
+        --surface: #f5f5f7;
+        --accent: #2563eb;
+        --accent-fg: #ffffff;
+      }
+      @media (prefers-color-scheme: dark) {
+        :root:not([data-theme="light"]) {
+          --bg: #131315;
+          --fg: #ececf0;
+          --muted: #9a9aa2;
+          --line: #2c2c31;
+          --surface: #1e1e22;
+          --accent: #6ea0ff;
+          --accent-fg: #0b1220;
+        }
+      }
+      :root[data-theme="dark"] {
+        --bg: #131315;
+        --fg: #ececf0;
+        --muted: #9a9aa2;
+        --line: #2c2c31;
+        --surface: #1e1e22;
+        --accent: #6ea0ff;
+        --accent-fg: #0b1220;
+        color-scheme: dark;
+      }
+      :root[data-theme="light"] { color-scheme: light; }
+      * { box-sizing: border-box; }
+      html { -webkit-text-size-adjust: 100%; }
+      body {
+        margin: 0;
+        background: var(--bg);
+        color: var(--fg);
+        font: 16px/1.7 system-ui, -apple-system, "Hiragino Sans", "Noto Sans JP", sans-serif;
+        overflow-wrap: anywhere;
+      }
+      main { max-width: 640px; margin: 0 auto; padding: 16px 16px 48px; }
+      .top { display: flex; align-items: center; justify-content: space-between; min-height: 44px; }
+      .brand { font-weight: 700; color: inherit; text-decoration: none; }
+      a { color: var(--accent); }
+      h1 { font-size: 28px; line-height: 1.35; margin: 32px 0 12px; }
+      h2 { font-size: 19px; margin: 40px 0 12px; }
+      .lead { color: var(--muted); margin: 0 0 24px; }
+      .btn {
+        display: inline-flex; align-items: center; justify-content: center;
+        min-height: 48px; padding: 0 24px; border-radius: 12px;
+        background: var(--accent); color: var(--accent-fg);
+        font-weight: 600; text-decoration: none;
+      }
+      .demo {
+        margin: 32px 0 0; padding: 16px; border: 1px solid var(--line);
+        border-radius: 14px; background: var(--surface);
+      }
+      .demo-head { display: flex; justify-content: space-between; gap: 8px; font-size: 14px; color: var(--muted); margin-bottom: 8px; }
+      .demo-title { font-weight: 600; color: var(--fg); }
+      .demo ul { list-style: none; margin: 0; padding: 0; }
+      .demo li { display: flex; gap: 8px; }
+      .demo .done { color: var(--muted); text-decoration: line-through; }
+      .features { list-style: none; margin: 0; padding: 0; display: grid; gap: 12px; }
+      .features li { padding: 14px 16px; border: 1px solid var(--line); border-radius: 12px; }
+      .features b { display: block; }
+      .features span { color: var(--muted); font-size: 15px; }
+      ol.steps { margin: 0; padding-left: 1.4em; }
+      ol.steps li { margin: 6px 0; }
+      .note { padding: 14px 16px; border-radius: 12px; background: var(--surface); font-size: 15px; }
+      .note p { margin: 0; }
+      .note p + p { margin-top: 6px; }
+      .end { margin-top: 40px; text-align: center; }
+      @media (min-width: 600px) {
+        .features { grid-template-columns: 1fr 1fr; }
+      }
+    </style>
+  </head>
+  <body>
+    <main>
+      <div class="top">
+        <a class="brand" href="/">docshare</a>
+        <a href="/">使ってみる</a>
+      </div>
+
+      <h1>リンクを送るだけで、<br />一緒に書けるメモ。</h1>
+      <p class="lead">ログインもアプリも不要。文書を作ってリンクを渡せば、受け取った人もその場で編集できる。</p>
+      <a class="btn" href="/">文書を作る</a>
+
+      <div class="demo" aria-hidden="true">
+        <div class="demo-head"><span class="demo-title">週末の買い出し</span><span>2 人が編集中</span></div>
+        <ul>
+          <li><span>☑</span><span class="done">牛乳</span></li>
+          <li><span>☑</span><span class="done">卵</span></li>
+          <li><span>☐</span><span>キャベツ <b>半玉</b></span></li>
+          <li><span>☐</span><span>パン</span></li>
+        </ul>
+      </div>
+
+      <h2>できること</h2>
+      <ul class="features">
+        <li><b>同時に編集</b><span>同じ文書を開いている人の入力がすぐに反映される。</span></li>
+        <li><b>チェックボックス</b><span>行頭で「[ ]」と空白を打つか ☑ ボタンで、やることリストになる。</span></li>
+        <li><b>太字・斜体・下線・リンク</b><span>URL を貼るとそのままリンクになる。</span></li>
+        <li><b>編集履歴</b><span>誰がいつ書いたかが残り、どの版にも戻せる。</span></li>
+        <li><b>ライト・ダーク</b><span>画面上の太陽と月のボタンで切り替える。</span></li>
+        <li><b>AI にも読める</b><span>リンクを Claude・ChatGPT・Gemini などに渡すと本文を読める。</span></li>
+      </ul>
+
+      <h2>使い方</h2>
+      <ol class="steps">
+        <li>はじめに名前を決める（編集履歴に表示される。あとで変えられる）。</li>
+        <li>「新しい文書」で文書を作る。</li>
+        <li>「共有」からリンクを送る。</li>
+      </ol>
+
+      <h2>気をつけること</h2>
+      <div class="note">
+        <p>リンクを知っている人は誰でも読み書きできる。パスワードなど人に見られて困ることは書かない。</p>
+        <p>文書は検索エンジンには載らない。</p>
+      </div>
+
+      <p class="end"><a class="btn" href="/">文書を作る</a></p>
+    </main>
+  </body>
+</html>

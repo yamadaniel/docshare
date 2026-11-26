@@ -323,6 +323,8 @@ button { cursor: pointer; -webkit-tap-highlight-color: transparent; touch-action
 .recent-title { flex: 1; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .recent-time { flex: none; color: var(--muted); font-size: 13px; }
 .empty-note { color: var(--muted); font-size: 14px; }
+.about-link { margin-top: 32px; font-size: 14px; }
+.about-link a { color: var(--muted); }
 .home-head { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
 .home-actions { display: flex; align-items: center; gap: 4px; min-width: 0; }
 .notfound { padding-top: 18vh; text-align: center; }
