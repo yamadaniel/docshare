@@ -231,6 +231,21 @@ export class DocRoom extends DurableObject<Env> {
   // ---- WebSocket（Hibernation API）----
 
   async webSocketMessage(ws: WebSocket, raw: string | ArrayBuffer): Promise<void> {
+    try {
+      await this.handleMessage(ws, raw);
+    } catch (err) {
+      // D1 の一時的な失敗などで応答できない：接続を閉じてクライアントに再接続させる
+      console.error("webSocketMessage failed", err);
+      this.loaded = undefined;
+      try {
+        ws.close(1011, "internal_error");
+      } catch {
+        // すでに閉じている
+      }
+    }
+  }
+
+  private async handleMessage(ws: WebSocket, raw: string | ArrayBuffer): Promise<void> {
     if (!this.allow(ws)) return this.error(ws, "rate_limited");
     if (typeof raw !== "string") return this.error(ws, "invalid");
     if (byteLength(raw) > MAX_WS_MESSAGE_BYTES) return this.error(ws, "too_large");
