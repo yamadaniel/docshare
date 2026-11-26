@@ -278,11 +278,12 @@ test("ヘッダーの切り替えでライト／ダークが変わり、リロ�
   await p.click(".new-btn");
   await p.waitForSelector(".editor");
   assert.equal(await bg(), "rgb(255, 255, 255)");
-  assert.ok(await p.$(".header .theme-toggle .theme-sun.on"), "ライトでは左の太陽が選択状態");
+  assert.ok(await p.$(".header .theme-toggle .half-sun.on"), "ライトでは左半分の太陽を強調");
+  assert.equal(await p.$$eval(".header .theme-toggle svg", (els) => els.length), 1, "太陽と満月は 1 つのアイコン");
   await p.click(".editor");
   await p.click(".header .theme-toggle");
   assert.equal(await bg(), "rgb(19, 19, 21)");
-  assert.ok(await p.$(".header .theme-toggle .theme-moon.on"), "ダークでは右の満月が選択状態");
+  assert.ok(await p.$(".header .theme-toggle .half-moon.on"), "ダークでは右半分の満月を強調");
   assert.equal(await p.evaluate(() => document.activeElement?.classList.contains("ProseMirror")), true, "編集中のフォーカスを奪わない");
   await p.reload();
   await p.waitForSelector(".editor");

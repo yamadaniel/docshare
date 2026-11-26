@@ -35,38 +35,39 @@ media.addEventListener("change", () => {
   if (!stored()) for (const l of listeners) l();
 });
 
-const svg = (paths: string): SVGSVGElement => {
-  const el = document.createElementNS("http://www.w3.org/2000/svg", "svg");
-  el.setAttribute("viewBox", "0 0 24 24");
-  el.setAttribute("aria-hidden", "true");
-  // 固定の図形だけを入れる（利用者の入力は含まない）
-  el.innerHTML = paths;
-  return el;
-};
+/**
+ * 1 つのアイコンの左半分を白抜きの太陽（光線付き）、右半分を塗りつぶしの満月にする。
+ * 固定の図形だけを使い、利用者の入力は含まない
+ */
+function halfSunMoonIcon(): { svg: SVGSVGElement; sun: SVGGElement; moon: SVGGElement } {
+  const svg = document.createElementNS("http://www.w3.org/2000/svg", "svg");
+  svg.setAttribute("viewBox", "0 0 24 24");
+  svg.setAttribute("aria-hidden", "true");
+  svg.innerHTML =
+    // 左半分：太陽の輪郭（半円と直径）と、左側の光線
+    '<g class="half-sun" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round">' +
+    '<path d="M12 6.5A5.5 5.5 0 0 0 12 17.5Z"/>' +
+    '<path d="M12 1.8v2M3.6 5.6l1.4 1.4M1.8 12h2M3.6 18.4l1.4-1.4M12 20.2v2"/>' +
+    "</g>" +
+    // 右半分：塗りつぶした満月
+    '<g class="half-moon"><path d="M12 6.5A5.5 5.5 0 0 1 12 17.5Z" fill="currentColor"/></g>';
+  return {
+    svg,
+    sun: svg.querySelector<SVGGElement>(".half-sun")!,
+    moon: svg.querySelector<SVGGElement>(".half-moon")!,
+  };
+}
 
-/** 白抜きの太陽 */
-const sunIcon = () =>
-  svg(
-    '<circle cx="12" cy="12" r="4.2" fill="none" stroke="currentColor" stroke-width="1.8"/>' +
-      '<g stroke="currentColor" stroke-width="1.8" stroke-linecap="round">' +
-      '<path d="M12 2.5v2.2M12 19.3v2.2M2.5 12h2.2M19.3 12h2.2M5.3 5.3l1.6 1.6M17.1 17.1l1.6 1.6M5.3 18.7l1.6-1.6M17.1 6.9l1.6-1.6"/>' +
-      "</g>",
-  );
-
-/** 塗りつぶしの満月 */
-const moonIcon = () => svg('<circle cx="12" cy="12" r="7.5" fill="currentColor"/>');
-
-/** 左に太陽、右に満月。押すたびにライト／ダークを切り替える */
+/** 半分ずつの太陽と満月のアイコン 1 つ。押すたびにライト／ダークを切り替え、今の側を強調する */
 export function createThemeToggle(): { el: HTMLButtonElement; destroy(): void } {
-  const sun = h("span", { class: "theme-opt theme-sun" }, sunIcon());
-  const moon = h("span", { class: "theme-opt theme-moon" }, moonIcon());
-  const el = h("button", { type: "button", class: "theme-toggle", role: "switch", "aria-label": "ダークモード" }, sun, moon);
+  const icon = halfSunMoonIcon();
+  const el = h("button", { type: "button", class: "theme-toggle", role: "switch", "aria-label": "ダークモード" }, icon.svg);
   const render = () => {
     const dark = currentTheme() === "dark";
     el.setAttribute("aria-checked", String(dark));
     el.title = dark ? "ライトモードにする" : "ダークモードにする";
-    sun.classList.toggle("on", !dark);
-    moon.classList.toggle("on", dark);
+    icon.sun.classList.toggle("on", !dark);
+    icon.moon.classList.toggle("on", dark);
   };
   // 編集中に押してもキーボードを閉じない
   el.addEventListener("pointerdown", (e) => e.preventDefault());

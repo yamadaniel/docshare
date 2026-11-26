@@ -357,27 +357,22 @@ button { cursor: pointer; -webkit-tap-highlight-color: transparent; touch-action
   text-align: center;
 }
 
-/* ---- theme toggle ---- */
+/* ---- theme toggle（左半分が太陽、右半分が満月の 1 アイコン） ---- */
 .theme-toggle {
   flex: none;
-  display: flex;
-  align-items: center;
-  gap: 2px;
-  height: 44px;
-  padding: 0 2px;
-  border: 0;
-  background: transparent;
-}
-.theme-opt {
   display: grid;
   place-items: center;
-  width: 28px;
-  height: 28px;
-  border-radius: 50%;
-  color: var(--muted);
+  width: 44px;
+  height: 44px;
+  padding: 0;
+  border: 0;
+  border-radius: 10px;
+  background: transparent;
 }
-.theme-opt svg { width: 18px; height: 18px; }
-.theme-opt.on { background: var(--active); color: var(--accent); }
+.theme-toggle svg { width: 26px; height: 26px; }
+.theme-toggle .half-sun,
+.theme-toggle .half-moon { color: var(--muted); }
+.theme-toggle .on { color: var(--accent); }
 
 /* ---- links ---- */
 .editor a, .preview a, .ssr a { color: var(--accent); text-decoration: underline; text-underline-offset: 2px; }
