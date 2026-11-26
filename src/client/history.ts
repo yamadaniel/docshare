@@ -2,7 +2,7 @@ import { DOMSerializer, Node } from "prosemirror-model";
 import { HISTORY_GROUP_MS, HISTORY_PAGE } from "../shared/constants";
 import type { RevisionDocResponse, RevisionListResponse, RevisionSummary } from "../shared/messages";
 import { schema } from "../shared/schema";
-import { h, toast } from "./dom";
+import { h, inertApp, toast } from "./dom";
 
 interface Group {
   /** グループ内で最も新しいリビジョン（表示・復元の対象） */
@@ -90,6 +90,7 @@ export function createHistorySheet(opts: Options): HistorySheet {
   let preview: Group | null = null;
   let loadSeq = 0;
   let refreshTimer = 0;
+  let releaseInert = () => {};
 
   const heading = h("h2", null, "履歴");
   const backBtn = h("button", { class: "icon-btn", type: "button", hidden: true }, "‹ 一覧");
@@ -192,6 +193,7 @@ export function createHistorySheet(opts: Options): HistorySheet {
     preview = null;
     sheet.classList.remove("open");
     overlay.remove();
+    releaseInert();
     document.removeEventListener("keydown", onKey);
     window.setTimeout(() => {
       if (!isOpen) sheet.remove();
@@ -221,6 +223,7 @@ export function createHistorySheet(opts: Options): HistorySheet {
       isOpen = true;
       (document.activeElement as HTMLElement | null)?.blur();
       document.body.append(overlay, sheet);
+      releaseInert = inertApp();
       document.addEventListener("keydown", onKey);
       body.replaceChildren(note("読み込み中…"));
       backBtn.hidden = true;
@@ -252,6 +255,7 @@ export function createHistorySheet(opts: Options): HistorySheet {
       isOpen = false;
       overlay.remove();
       sheet.remove();
+      releaseInert();
       document.removeEventListener("keydown", onKey);
     },
   };

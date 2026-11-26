@@ -1,5 +1,5 @@
 import { NAME_MAX } from "../shared/constants";
-import { h } from "./dom";
+import { h, inertApp } from "./dom";
 
 interface NameModalOptions {
   title: string;
@@ -37,9 +37,14 @@ export function nameModal(opts: NameModalOptions): Promise<boolean> {
     );
     const overlay = h("div", { class: "overlay" }, form);
 
+    const opener = document.activeElement as HTMLElement | null;
+    let releaseInert = () => {};
     const close = (result: boolean) => {
       document.removeEventListener("keydown", onKey);
       overlay.remove();
+      releaseInert();
+      // 開く前にフォーカスしていた要素（名前チップなど）に戻す
+      if (opener && opener !== document.body && opener.isConnected) opener.focus();
       resolve(result);
     };
     const onKey = (e: KeyboardEvent) => {
@@ -73,6 +78,7 @@ export function nameModal(opts: NameModalOptions): Promise<boolean> {
 
     refresh();
     document.body.append(overlay);
+    releaseInert = inertApp();
     input.focus();
     input.select();
   });
