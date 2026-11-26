@@ -22,6 +22,7 @@ import type {
   StepJSON,
 } from "../../shared/messages";
 import type { Env } from "../env";
+import { describeDoc, renderDocHtml } from "../render";
 import { getUserName, resolveNames, verifyUser } from "../users";
 
 interface Attachment {
@@ -170,6 +171,11 @@ export class DocRoom extends DurableObject<Env> {
 
     const state = this.load();
     if (!state) return json({ error: "not_found" }, 404);
+
+    // サーバー側で描画した本文（/d/{docId} の HTML に埋め込む）
+    if (path === "/render" && request.method === "GET") {
+      return json({ title: state.title, html: renderDocHtml(state.doc), description: describeDoc(state.doc) });
+    }
 
     if (path === "/revisions" && request.method === "GET") {
       const before = Number(url.searchParams.get("before")) || Number.MAX_SAFE_INTEGER;

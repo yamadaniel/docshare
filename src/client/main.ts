@@ -39,7 +39,7 @@ function route(): void {
   cleanup = null;
   const path = location.pathname;
   const m = /^\/d\/([^/]+)\/?$/.exec(path);
-  if (path === "/") renderHome(app, ctx, navigate);
+  if (path === "/") cleanup = renderHome(app, ctx, navigate);
   else if (m && DOC_ID_RE.test(m[1])) cleanup = renderDocPage(app, m[1], ctx);
   else renderNotFound();
 }

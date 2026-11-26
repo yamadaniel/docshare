@@ -5,6 +5,7 @@ export const SECRET_RE = /^[A-Za-z0-9_-]{43}$/;
 
 export const NAME_MAX = 20;
 export const TITLE_MAX = 100;
+export const HREF_MAX = 2048;
 export const MAX_WS_MESSAGE_BYTES = 64 * 1024;
 export const MAX_DOC_BYTES = 1024 * 1024;
 export const SNAPSHOT_INTERVAL = 200;
@@ -44,4 +45,30 @@ export function sanitizeTitle(input: unknown): string | null {
   if (typeof input !== "string") return null;
   const title = input.replace(/[\p{Cc}\p{Cf}]/gu, "").trim();
   return [...title].length <= TITLE_MAX ? title : null;
+}
+
+/** リンク先として許可する URL（http / https / mailto）。それ以外は javascript: などを防ぐため拒否する */
+export function isSafeHref(value: unknown): value is string {
+  if (typeof value !== "string" || value.length === 0 || value.length > HREF_MAX) return false;
+  if (!/^(https?:\/\/|mailto:)/i.test(value)) return false;
+  try {
+    const url = new URL(value);
+    return url.protocol === "http:" || url.protocol === "https:" || url.protocol === "mailto:";
+  } catch {
+    return false;
+  }
+}
+
+/**
+ * 入力された文字列をリンク先に整える。スキームがなければ https:// を補う。
+ * 使えない場合は null
+ */
+export function normalizeHref(input: string): string | null {
+  const raw = input.trim();
+  if (!raw) return null;
+  const withScheme = /^[a-z][a-z0-9+.-]*:/i.test(raw) ? raw : `https://${raw}`;
+  if (!isSafeHref(withScheme)) return null;
+  // 「https://」だけ、などホストのない URL は除く
+  if (/^https?:/i.test(withScheme) && !new URL(withScheme).hostname.includes(".")) return null;
+  return withScheme;
 }

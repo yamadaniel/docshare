@@ -2,6 +2,7 @@ import { h, toast } from "./dom";
 import { nameModal } from "./modal";
 import type { PageContext } from "./docPage";
 import { loadRecent } from "./recent";
+import { createThemeToggle } from "./theme";
 import { renameUser } from "./user";
 
 function formatDate(ms: number): string {
@@ -12,7 +13,7 @@ function formatDate(ms: number): string {
     : d.toLocaleDateString("ja-JP", { month: "numeric", day: "numeric" });
 }
 
-export function renderHome(app: HTMLElement, ctx: PageContext, navigate: (path: string) => void): void {
+export function renderHome(app: HTMLElement, ctx: PageContext, navigate: (path: string) => void): () => void {
   document.title = "docshare";
   const nameChip = h("button", { class: "name-chip", type: "button", title: "名前を変更" }, ctx.getUser().name);
   nameChip.addEventListener("click", () => {
@@ -29,6 +30,7 @@ export function renderHome(app: HTMLElement, ctx: PageContext, navigate: (path: 
     });
   });
 
+  const themeToggle = createThemeToggle();
   const newBtn = h("button", { class: "btn primary new-btn", type: "button" }, "新しい文書");
   newBtn.addEventListener("click", async () => {
     newBtn.disabled = true;
@@ -49,7 +51,7 @@ export function renderHome(app: HTMLElement, ctx: PageContext, navigate: (path: 
     h(
       "div",
       { class: "page" },
-      h("div", { class: "home-head" }, h("h1", null, "docshare"), nameChip),
+      h("div", { class: "home-head" }, h("h1", null, "docshare"), h("div", { class: "home-actions" }, themeToggle.el, nameChip)),
       newBtn,
       h("h2", { class: "section-title" }, "最近開いた文書"),
       recent.length
@@ -72,4 +74,5 @@ export function renderHome(app: HTMLElement, ctx: PageContext, navigate: (path: 
         : h("p", { class: "empty-note" }, "まだ文書を開いていない。"),
     ),
   );
+  return () => themeToggle.destroy();
 }

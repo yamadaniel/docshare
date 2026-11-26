@@ -134,7 +134,7 @@ test("履歴に編集者名つきで並び、過去の版に戻せて、名前�
   await b.click(".rev-row >> nth=-1");
   await b.waitForSelector(".preview");
   await b.click(".sheet-foot .btn");
-  await a.waitForFunction(() => !document.querySelector('.editor [data-checked="true"]'));
+  for (const p of [a, b]) await p.waitForFunction(() => !document.querySelector('.editor [data-checked="true"]'));
   assert.equal(await editorHtml(a), await editorHtml(b));
 
   await b.click('.tb-btn:has-text("履歴")');
@@ -270,4 +270,83 @@ test("D1 が失敗しても止まらず、復旧後に自動で再接続する",
   assert.equal(new URL(a.url()).pathname, new URL(url).pathname, "登録情報を消して再登録させたりしない");
   assert.equal(await a.$(".overlay"), null);
   await close(a);
+});
+
+test("ヘッダーの切り替えでライト／ダークが変わり、リロード後も保持する", async () => {
+  const p = await openAs("Theme", "/", { colorScheme: "light" });
+  const bg = () => p.evaluate(() => getComputedStyle(document.body).backgroundColor);
+  await p.click(".new-btn");
+  await p.waitForSelector(".editor");
+  assert.equal(await bg(), "rgb(255, 255, 255)");
+  assert.ok(await p.$(".header .theme-toggle .theme-sun.on"), "ライトでは左の太陽が選択状態");
+  await p.click(".editor");
+  await p.click(".header .theme-toggle");
+  assert.equal(await bg(), "rgb(19, 19, 21)");
+  assert.ok(await p.$(".header .theme-toggle .theme-moon.on"), "ダークでは右の満月が選択状態");
+  assert.equal(await p.evaluate(() => document.activeElement?.classList.contains("ProseMirror")), true, "編集中のフォーカスを奪わない");
+  await p.reload();
+  await p.waitForSelector(".editor");
+  assert.equal(await bg(), "rgb(19, 19, 21)", "リロード後も保持");
+  await p.click(".header .theme-toggle");
+  assert.equal(await bg(), "rgb(255, 255, 255)");
+  await close(p);
+});
+
+test("リンク：URL の自動リンク化、ツールバーからの追加・編集・解除、同期", async () => {
+  const { a, b } = await pair();
+  await a.click(".editor");
+  await a.keyboard.type("資料は https://example.com/guide. を見る");
+  await a.waitForSelector('.editor a[href="https://example.com/guide"]');
+
+  // 選択した文字をリンクにする
+  await a.keyboard.press("Enter");
+  await a.keyboard.type("公式サイト");
+  await a.keyboard.press("Shift+Home");
+  await a.click(".tb-link");
+  await a.fill(".overlay .text-input", "javascript:alert(1)");
+  await a.click(".overlay .btn.primary");
+  assert.match(await a.textContent(".overlay .form-error"), /URL/, "javascript: は拒否");
+  await a.fill(".overlay .text-input", "www.cloudflare.com");
+  await a.click(".overlay .btn.primary");
+  await a.waitForSelector(".overlay", { state: "detached" });
+  await a.waitForSelector('.editor a[href="https://www.cloudflare.com"]');
+
+  // 相手にも同期し、rel=noreferrer が付く
+  await b.waitForSelector('.editor a[href="https://www.cloudflare.com"]', { timeout: 5000 });
+  assert.equal(await b.getAttribute('.editor a[href="https://example.com/guide"]', "rel"), "noopener noreferrer nofollow");
+
+  // カーソルをリンクに置くと操作バーが出て、開ける
+  await a.click('.editor a[href="https://example.com/guide"]');
+  await a.waitForSelector(".link-bar:not([hidden])");
+  assert.equal(await a.textContent(".link-url"), "example.com/guide");
+  const [popup] = await Promise.all([a.context().waitForEvent("page"), a.click('.link-bar button:has-text("開く")')]);
+  assert.equal(popup.url(), "https://example.com/guide");
+  await popup.close();
+
+  // 解除
+  await a.click('.link-bar button:has-text("解除")');
+  await b.waitForFunction(() => !document.querySelector('.editor a[href="https://example.com/guide"]'), null, { timeout: 5000 });
+  assert.equal(await editorHtml(a), await editorHtml(b));
+  await close(a, b);
+});
+
+test("サーバーが埋め込んだ本文を読み込み中の表示に使い、接続後はエディタに置き換える", async () => {
+  const p = await openAs("SSR");
+  await p.click(".new-btn");
+  await p.waitForSelector(".editor");
+  await p.click(".editor");
+  await p.keyboard.type("サーバー描画の確認");
+  await p.waitForTimeout(1200);
+  // JavaScript なしでも本文が見える
+  const ctx = await p.context().browser().newContext({ javaScriptEnabled: false });
+  const nojs = await ctx.newPage();
+  await nojs.goto(p.url());
+  assert.match(await nojs.textContent("#app"), /サーバー描画の確認/);
+  await ctx.close();
+  // JavaScript ありでは、エディタだけが残る（本文が二重にならない）
+  await p.reload();
+  await p.waitForSelector(".editor");
+  assert.equal(await p.$(".ssr"), null);
+  assert.equal(await editorText(p), "サーバー描画の確認");
+  await close(p);
 });

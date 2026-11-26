@@ -2,7 +2,10 @@
 
 リンクを知っていれば誰でも編集できる、軽量な共同編集メモ。ログイン不要。Cloudflare Workers + Durable Objects + D1 の無料枠で動く。
 
-- エディタ：ProseMirror を直接使用（太字・斜体・下線・チェックボックス）
+- エディタ：ProseMirror を直接使用（太字・斜体・下線・チェックボックス・リンク）
+- リンク：URL を入力して空白を打つか、URL を貼り付けるとリンクになる。文字を選んでツールバーの 🔗 からも付けられる。リンク上にカーソルを置くと「開く・編集・解除」が出る。PC では Ctrl / Cmd + K で入力、Ctrl / Cmd + クリックで開く。使えるのは http・https・mailto だけ
+- 表示：ヘッダーの ☀ / ● でライト・ダークを切り替える（端末に保存）。選ぶまでは OS の設定に従う
+- AI からの読み取り：`/d/{docId}` の HTML には本文がサーバー側で埋め込まれる。JavaScript を実行しない読み手（Claude・ChatGPT・Gemini などの URL 読み取り）にも中身が見える
 - 同期：prosemirror-collab。文書ごとに 1 つの Durable Object（DocRoom）が編集を確定・保存する
 - 履歴：編集はすべてリビジョンとして編集者付きで保存。任意の版に戻せる
 - ユーザー名：D1 に保存。名前を変えると過去の履歴の表示名も変わる
@@ -99,7 +102,7 @@ node tests/run.mjs tests/protocol.test.mjs
 
 | 項目 | 内容 |
 | --- | --- |
-| `assets.run_worker_first` | `/api/*` は常に Worker で処理する。それ以外は静的ファイル、なければ `index.html`（SPA フォールバック） |
+| `assets.run_worker_first` | `/api/*` と `/d/*`（本文を埋め込むため）は常に Worker で処理する。それ以外は静的ファイル、なければ `index.html`（SPA フォールバック） |
 | `ratelimits` | 文書作成・ユーザー登録の IP 単位レート制限（60 秒あたり 10 回）。`namespace_id` はアカウント内で一意な整数文字列。バインディングが使えない環境では Worker 内の簡易カウンターで代替する |
 | `d1_databases` | ユーザー情報（`users` テーブル）。マイグレーションは `migrations/` |
 
@@ -108,7 +111,7 @@ node tests/run.mjs tests/protocol.test.mjs
 ```
 src/client      フロント（エディタ、ツールバー、履歴シート、名前モーダル）
 src/shared      schema、WebSocket メッセージ型、定数（フロントと DocRoom で共用）
-src/worker      Worker エントリ、API ルーティング、レート制限
+src/worker      Worker エントリ、API ルーティング、レート制限、本文のサーバー側描画
 src/worker/do   DocRoom（Durable Object）
 migrations      D1 マイグレーション
 public/_headers 静的ファイルのセキュリティヘッダー
@@ -125,6 +128,7 @@ tests           試験（npm test）
 | POST | /api/users | 初回登録 `{ userId, secret, name }` |
 | PATCH | /api/users/me | 名前変更 `{ name }`（`X-User-Id` / `X-User-Secret` ヘッダーで認証） |
 | GET | /api/docs/{docId}/ws | WebSocket（DocRoom へ転送） |
+| GET | /d/{docId} | 文書画面。本文を埋め込んだ HTML を返す（存在しない文書は 404） |
 
 WebSocket のメッセージ型は `src/shared/messages.ts` を参照。
 

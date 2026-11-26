@@ -1,12 +1,14 @@
 import type { EditorView } from "prosemirror-view";
-import { TITLE_MAX, sanitizeTitle } from "../shared/constants";
+import { HREF_MAX, TITLE_MAX, normalizeHref, sanitizeTitle } from "../shared/constants";
+import { linkAt, setLink } from "./commands";
 import { createView } from "./editor";
 import { createToolbar } from "./toolbar";
 import { h, toast } from "./dom";
 import { createHistorySheet } from "./history";
-import { nameModal } from "./modal";
+import { nameModal, promptModal } from "./modal";
 import { removeRecent, touchRecent } from "./recent";
 import { DocConnection } from "./sync";
+import { createThemeToggle } from "./theme";
 import { clearUser, renameUser, type User } from "./user";
 
 export interface PageContext {
@@ -48,16 +50,21 @@ export function renderDocPage(app: HTMLElement, docId: string, ctx: PageContext)
   });
   const presence = h("span", { class: "presence", title: "接続人数" }, "0");
   const nameChip = h("button", { class: "name-chip", type: "button", title: "名前を変更" }, ctx.getUser().name);
+  const themeToggle = createThemeToggle();
   const header = h(
     "header",
     { class: "header" },
     h("a", { class: "home-link", href: "/", title: "トップへ", "aria-label": "トップへ" }, "‹"),
     titleInput,
+    themeToggle.el,
     presence,
     nameChip,
   );
   const banner = h("div", { class: "status-banner", role: "status", hidden: true }, "オフライン。再接続中…");
-  const mount = h("main", { class: "doc-main" }, h("p", { class: "sheet-note" }, "読み込み中…"));
+  // サーバーが埋め込んだ本文があれば、接続が終わるまでの表示に使う（文書名は header にあるので見出しは外す）
+  const ssr = app.querySelector<HTMLElement>(`.ssr[data-doc-id="${docId}"]`);
+  ssr?.querySelector("h1")?.remove();
+  const mount = h("main", { class: "doc-main" }, ssr ?? h("p", { class: "sheet-note" }, "読み込み中…"));
 
   const applyTitle = (next: string) => {
     title = next;
@@ -73,6 +80,7 @@ export function renderDocPage(app: HTMLElement, docId: string, ctx: PageContext)
         state,
         onTransaction: (tr) => conn.handleTransaction(tr),
         onUpdate: (v) => toolbar.update(v),
+        onLinkShortcut: () => void editLink(),
       });
       toolbar.update(view);
       return view;
@@ -124,8 +132,36 @@ export function renderDocPage(app: HTMLElement, docId: string, ctx: PageContext)
 
   const historySheet = createHistorySheet({ docId, restore: (revId) => conn.sendRestore(revId) });
 
+  /** 選択範囲（またはカーソル位置のリンク）にリンク先を設定する */
+  async function editLink(): Promise<void> {
+    const v = view;
+    if (!v || !v.editable) return;
+    const current = linkAt(v.state);
+    await promptModal({
+      title: current ? "リンクを編集" : "リンクを追加",
+      description: v.state.selection.empty && !current ? "入力した URL を本文に挿入する。" : "選択した文字をリンクにする。",
+      initial: current?.href ?? "",
+      dismissable: true,
+      okLabel: "設定",
+      input: {
+        inputMode: "url",
+        maxLength: HREF_MAX,
+        placeholder: "https://example.com",
+        autocomplete: "url",
+        autocapitalize: "off",
+        "aria-label": "リンク先の URL",
+      },
+      async submit(value) {
+        const href = normalizeHref(value);
+        if (!href) throw new Error("http://・https://・mailto: の URL を入力");
+        setLink(href)(v.state, v.dispatch);
+      },
+    });
+  }
+
   const toolbar = createToolbar(() => view, {
     onHistory: () => historySheet.open(),
+    onLink: () => void editLink(),
     async onShare() {
       const url = `${location.origin}/d/${docId}`;
       if (navigator.share) {
@@ -183,6 +219,7 @@ export function renderDocPage(app: HTMLElement, docId: string, ctx: PageContext)
 
   return () => {
     conn.destroy();
+    themeToggle.destroy();
     historySheet.destroy();
     view?.destroy();
     toolbar.destroy();

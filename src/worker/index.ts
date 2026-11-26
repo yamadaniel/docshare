@@ -1,20 +1,61 @@
 import { DOC_ID_RE, SECRET_RE, USER_ID_RE, generateDocId, sanitizeName } from "../shared/constants";
 import type { Env } from "./env";
 import { allowRequest } from "./ratelimit";
+import { escapeHtml } from "./render";
 import { sha256Hex, verifyUser } from "./users";
 
 export { DocRoom } from "./do/DocRoom";
 
+/** Worker が返す応答に付けるヘッダー（public/_headers は Worker の応答には効かない） */
+const SECURITY_HEADERS: Record<string, string> = {
+  "Cache-Control": "no-store",
+  "Referrer-Policy": "no-referrer",
+  "X-Robots-Tag": "noindex",
+  "X-Content-Type-Options": "nosniff",
+};
+
 function json(data: unknown, status = 200): Response {
-  return Response.json(data, {
-    status,
-    headers: {
-      "Cache-Control": "no-store",
-      "Referrer-Policy": "no-referrer",
-      "X-Robots-Tag": "noindex",
-      "X-Content-Type-Options": "nosniff",
-    },
-  });
+  return Response.json(data, { status, headers: SECURITY_HEADERS });
+}
+
+const UNTITLED = "無題の文書";
+
+/**
+ * 文書画面。SPA の index.html に、サーバーで描画した本文を埋め込んで返す。
+ * JavaScript を実行しない読み手（AI の URL 読み取りなど）にも中身が見え、
+ * ブラウザでは接続が終わるまでの表示になる
+ */
+async function docPage(request: Request, env: Env, docId: string): Promise<Response> {
+  const shell = await env.ASSETS.fetch(new Request(new URL("/", request.url)));
+  const headers = new Headers(shell.headers);
+  for (const [k, v] of Object.entries(SECURITY_HEADERS)) headers.set(k, v);
+  headers.delete("ETag");
+  headers.delete("Last-Modified");
+
+  let rendered: { title: string; html: string; description: string } | null = null;
+  if (DOC_ID_RE.test(docId)) {
+    const stub = env.DOC_ROOM.get(env.DOC_ROOM.idFromName(docId));
+    const res = await stub.fetch("https://do/render");
+    if (res.ok) rendered = await res.json();
+  }
+  if (!rendered) {
+    // 画面の 404 表示は SPA が行う。ステータスだけ 404 にする
+    return new Response(shell.body, { status: 404, headers });
+  }
+
+  const title = rendered.title || UNTITLED;
+  const article =
+    `<main class="doc-main"><article class="ssr" data-doc-id="${docId}">` +
+    `<h1>${escapeHtml(title)}</h1>${rendered.html}</article></main>`;
+  const page = new HTMLRewriter()
+    .on("title", { element: (el) => void el.setInnerContent(`${title} | docshare`) })
+    .on("head", {
+      element: (el) =>
+        void el.append(`<meta name="description" content="${escapeHtml(rendered.description)}">`, { html: true }),
+    })
+    .on("#app", { element: (el) => void el.setInnerContent(article, { html: true }) })
+    .transform(new Response(shell.body, { status: 200, headers }));
+  return page;
 }
 
 async function readJson(request: Request): Promise<Record<string, unknown> | null> {
@@ -117,6 +158,8 @@ export default {
   async fetch(request: Request, env: Env): Promise<Response> {
     const url = new URL(request.url);
     if (url.pathname.startsWith("/api/")) return handleApi(request, env, url);
+    const doc = /^\/d\/([^/]+)\/?$/.exec(url.pathname);
+    if (doc && request.method === "GET") return docPage(request, env, doc[1]);
     return env.ASSETS.fetch(request);
   },
 } satisfies ExportedHandler<Env>;
