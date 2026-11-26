@@ -2,3 +2,9 @@
   Referrer-Policy: no-referrer
   X-Robots-Tag: noindex
   X-Content-Type-Options: nosniff
+
+/about
+  ! X-Robots-Tag
+
+/about.html
+  ! X-Robots-Tag
