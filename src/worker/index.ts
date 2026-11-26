@@ -1,11 +1,20 @@
 import { DOC_ID_RE, SECRET_RE, USER_ID_RE, generateDocId, sanitizeName } from "../shared/constants";
 import type { Env } from "./env";
+import { allowRequest } from "./ratelimit";
 import { sha256Hex, verifyUser } from "./users";
 
 export { DocRoom } from "./do/DocRoom";
 
 function json(data: unknown, status = 200): Response {
-  return Response.json(data, { status, headers: { "Cache-Control": "no-store" } });
+  return Response.json(data, {
+    status,
+    headers: {
+      "Cache-Control": "no-store",
+      "Referrer-Policy": "no-referrer",
+      "X-Robots-Tag": "noindex",
+      "X-Content-Type-Options": "nosniff",
+    },
+  });
 }
 
 async function readJson(request: Request): Promise<Record<string, unknown> | null> {
@@ -76,8 +85,14 @@ async function handleApi(request: Request, env: Env, url: URL): Promise<Response
   const path = url.pathname;
   const method = request.method;
 
-  if (path === "/api/docs" && method === "POST") return createDoc(env);
-  if (path === "/api/users" && method === "POST") return registerUser(request, env);
+  if (path === "/api/docs" && method === "POST") {
+    if (!(await allowRequest(env, "docs", request))) return json({ error: "rate_limited" }, 429);
+    return createDoc(env);
+  }
+  if (path === "/api/users" && method === "POST") {
+    if (!(await allowRequest(env, "users", request))) return json({ error: "rate_limited" }, 429);
+    return registerUser(request, env);
+  }
   if (path === "/api/users/me" && method === "PATCH") return renameUser(request, env);
 
   const m = /^\/api\/docs\/([^/]+)\/(ws|revisions|revisions\/\d+)$/.exec(path);

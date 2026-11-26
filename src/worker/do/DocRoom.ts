@@ -1,6 +1,6 @@
 import { DurableObject } from "cloudflare:workers";
 import { Node, Slice } from "prosemirror-model";
-import { ReplaceStep, Step } from "prosemirror-transform";
+import { AttrStep, DocAttrStep, ReplaceStep, Step } from "prosemirror-transform";
 import { schema } from "../../shared/schema";
 import {
   MAX_DOC_BYTES,
@@ -330,6 +330,7 @@ export class DocRoom extends DurableObject<Env> {
     try {
       for (const stepJson of msg.steps) {
         const step = Step.fromJSON(schema, stepJson);
+        if (!this.attrsDeclared(step, doc)) throw new Error("undeclared attr");
         const result = step.apply(doc);
         if (!result.doc) throw new Error(result.failed ?? "apply failed");
         const before = doc;
@@ -486,6 +487,16 @@ export class DocRoom extends DurableObject<Env> {
   }
 
   // ---- 補助 ----
+
+  /** schema に宣言されていない属性を書き換える step は、適用しても無視されるだけなので受け付けない */
+  private attrsDeclared(step: Step, doc: Node): boolean {
+    if (step instanceof DocAttrStep) return Object.hasOwn(doc.type.spec.attrs ?? {}, step.attr);
+    if (step instanceof AttrStep) {
+      const node = doc.nodeAt(step.pos);
+      return !!node && Object.hasOwn(node.type.spec.attrs ?? {}, step.attr);
+    }
+    return true;
+  }
 
   private tooLarge(doc: Node): boolean {
     // 小さい文書では JSON 化を省く（1位置あたり40バイトを超えることはまずない）

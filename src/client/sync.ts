@@ -50,6 +50,7 @@ export class DocConnection {
     private readonly cb: SyncCallbacks,
   ) {
     window.addEventListener("online", this.onOnline);
+    window.addEventListener("offline", this.onOffline);
     document.addEventListener("visibilitychange", this.onVisibility);
     this.connect();
   }
@@ -67,7 +68,7 @@ export class DocConnection {
       this.send({ type: "hello", userId, secret });
       this.lastPong = Date.now();
       this.pingTimer = window.setInterval(() => {
-        if (Date.now() - this.lastPong > PING_MS * 2.5) return ws.close();
+        if (Date.now() - this.lastPong > PING_MS * 2.5) return this.dropped(ws);
         if (ws.readyState === WebSocket.OPEN) ws.send("ping");
       }, PING_MS);
     };
@@ -85,21 +86,36 @@ export class DocConnection {
       }
       this.handle(msg);
     };
-    ws.onclose = () => {
-      if (this.ws !== ws) return;
-      clearInterval(this.pingTimer);
-      this.ws = null;
-      this.synced = false;
-      this.inflight = false;
-      if (this.closed) return;
-      this.cb.onStatus(false);
-      const delay = Math.min(10_000, 500 * 2 ** this.retry++);
-      this.reconnectTimer = window.setTimeout(() => this.connect(), delay);
-    };
+    ws.onclose = () => this.dropped(ws);
+  }
+
+  /** 接続を切断済みとして扱い、再接続を予約する。close イベントの到着を待たない */
+  private dropped(ws: WebSocket): void {
+    if (this.ws !== ws) return;
+    clearInterval(this.pingTimer);
+    this.ws = null;
+    this.synced = false;
+    this.inflight = false;
+    try {
+      ws.close();
+    } catch {
+      // すでに閉じている
+    }
+    if (this.closed) return;
+    this.cb.onStatus(false);
+    clearTimeout(this.reconnectTimer);
+    const delay = Math.min(10_000, 500 * 2 ** this.retry++);
+    this.reconnectTimer = window.setTimeout(() => this.connect(), delay);
   }
 
   private readonly onOnline = (): void => {
+    this.retry = 0;
     if (!this.ws) this.connect();
+  };
+
+  /** 回線断を検知したら、ping のタイムアウトを待たずに閉じて再接続に備える */
+  private readonly onOffline = (): void => {
+    if (this.ws) this.dropped(this.ws);
   };
 
   private readonly onVisibility = (): void => {
@@ -114,6 +130,7 @@ export class DocConnection {
     clearTimeout(this.reconnectTimer);
     clearInterval(this.pingTimer);
     window.removeEventListener("online", this.onOnline);
+    window.removeEventListener("offline", this.onOffline);
     document.removeEventListener("visibilitychange", this.onVisibility);
     this.ws?.close();
     this.ws = null;
@@ -223,7 +240,7 @@ export class DocConnection {
   private reset(reason: "too_large" | "invalid"): void {
     this.needReset = true;
     this.retry = 0;
-    this.ws?.close();
+    if (this.ws) this.dropped(this.ws);
     this.cb.onReset(reason);
   }
 
