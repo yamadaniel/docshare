@@ -12,8 +12,9 @@
   --toolbar-h: 52px;
   --header-h: 52px;
 }
+/* ダーク：OS がダークで、ライトを選んでいない場合 */
 @media (prefers-color-scheme: dark) {
-  :root {
+  :root:not([data-theme="light"]) {
     --bg: #131315;
     --fg: #ececf0;
     --muted: #9a9aa2;
@@ -25,6 +26,20 @@
     --danger: #ef6b6b;
   }
 }
+/* ダーク：ヘッダーの切り替えでダークを選んだ場合 */
+:root[data-theme="dark"] {
+  --bg: #131315;
+  --fg: #ececf0;
+  --muted: #9a9aa2;
+  --line: #2c2c31;
+  --surface: #1e1e22;
+  --accent: #6ea0ff;
+  --accent-fg: #0b1220;
+  --active: #24365c;
+  --danger: #ef6b6b;
+  color-scheme: dark;
+}
+:root[data-theme="light"] { color-scheme: light; }
 * { box-sizing: border-box; }
 html { -webkit-text-size-adjust: 100%; }
 body {
@@ -94,7 +109,7 @@ button { cursor: pointer; -webkit-tap-highlight-color: transparent; touch-action
 .presence.online::before { background: #2e9e5b; }
 .name-chip {
   flex: none;
-  max-width: 34vw;
+  max-width: 28vw;
   height: 44px;
   padding: 0 14px;
   border: 1px solid var(--line);
@@ -309,6 +324,7 @@ button { cursor: pointer; -webkit-tap-highlight-color: transparent; touch-action
 .recent-time { flex: none; color: var(--muted); font-size: 13px; }
 .empty-note { color: var(--muted); font-size: 14px; }
 .home-head { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+.home-actions { display: flex; align-items: center; gap: 4px; min-width: 0; }
 .notfound { padding-top: 18vh; text-align: center; }
 .notfound .code { margin: 0; font-size: 56px; font-weight: 700; line-height: 1.1; }
 .notfound a { color: var(--accent); }
@@ -340,3 +356,66 @@ button { cursor: pointer; -webkit-tap-highlight-color: transparent; touch-action
   font-size: 13px;
   text-align: center;
 }
+
+/* ---- theme toggle（左半分が太陽、右半分が満月の 1 アイコン） ---- */
+.theme-toggle {
+  flex: none;
+  display: grid;
+  place-items: center;
+  width: 44px;
+  height: 44px;
+  padding: 0;
+  border: 0;
+  border-radius: 10px;
+  background: transparent;
+}
+.theme-toggle svg { width: 26px; height: 26px; }
+.theme-toggle .half-sun,
+.theme-toggle .half-moon { color: var(--muted); }
+.theme-toggle .on { color: var(--accent); }
+
+/* ---- links ---- */
+.editor a, .preview a, .ssr a { color: var(--accent); text-decoration: underline; text-underline-offset: 2px; }
+.link-bar {
+  position: absolute;
+  left: 8px;
+  right: 8px;
+  bottom: calc(100% + 6px);
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  min-height: 44px;
+  padding: 0 4px 0 12px;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: var(--bg);
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.15);
+}
+.link-bar[hidden] { display: none; }
+.link-url {
+  flex: 1;
+  min-width: 0;
+  color: var(--muted);
+  font-size: 13px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.lb-btn {
+  flex: none;
+  min-width: 44px;
+  height: 40px;
+  padding: 0 8px;
+  border: 0;
+  border-radius: 8px;
+  background: transparent;
+  color: var(--accent);
+  font-size: 14px;
+}
+.tb-link { font-size: 17px; }
+
+/* ---- サーバーで描画した本文（JavaScript が動くまでの表示、AI 向け） ---- */
+.ssr { max-width: 760px; margin: 0 auto; padding: 16px; white-space: pre-wrap; word-break: break-word; }
+.ssr h1 { margin: 0 0 12px; font-size: 20px; }
+.ssr p { margin: 0 0 0.5em; }
+.ssr ul { list-style: none; margin: 0 0 0.5em; padding: 0; }

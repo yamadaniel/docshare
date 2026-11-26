@@ -1,34 +1,36 @@
 import { NAME_MAX } from "../shared/constants";
 import { h, inertApp } from "./dom";
 
-interface NameModalOptions {
+interface PromptModalOptions {
   title: string;
   description: string;
   initial?: string;
   /** false なら閉じられない（初回登録） */
   dismissable: boolean;
-  submit(name: string): Promise<void>;
+  okLabel?: string;
+  /** 入力欄の属性（maxLength、placeholder など） */
+  input: Record<string, unknown>;
+  /** 例外を投げると、そのメッセージを表示してモーダルを開いたままにする */
+  submit(value: string): Promise<void>;
 }
 
-/** 名前入力モーダル。確定で true、キャンセルで false */
-export function nameModal(opts: NameModalOptions): Promise<boolean> {
+/** 1 行入力のモーダル。確定で true、キャンセルで false */
+export function promptModal(opts: PromptModalOptions): Promise<boolean> {
   return new Promise((resolve) => {
     const input = h("input", {
       class: "text-input",
       type: "text",
       value: opts.initial ?? "",
-      maxLength: NAME_MAX,
-      placeholder: "名前（20文字まで）",
-      autocomplete: "nickname",
       enterKeyHint: "done",
-      "aria-label": "名前",
+      ...opts.input,
     });
     const error = h("p", { class: "form-error", role: "alert" });
-    const ok = h("button", { class: "btn primary", type: "submit" }, "保存");
+    const ok = h("button", { class: "btn primary", type: "submit" }, opts.okLabel ?? "保存");
     const cancel = opts.dismissable ? h("button", { class: "btn", type: "button" }, "キャンセル") : null;
     const form = h(
       "form",
-      { class: "modal", role: "dialog", "aria-modal": "true", "aria-label": opts.title },
+      // ブラウザ自体の入力検証は使わない（type="url" だと「example.com」が送信できない）
+      { class: "modal", role: "dialog", "aria-modal": "true", "aria-label": opts.title, noValidate: true },
       h("h2", null, opts.title),
       h("p", null, opts.description),
       input,
@@ -81,5 +83,26 @@ export function nameModal(opts: NameModalOptions): Promise<boolean> {
     releaseInert = inertApp();
     input.focus();
     input.select();
+  });
+}
+
+interface NameModalOptions {
+  title: string;
+  description: string;
+  initial?: string;
+  dismissable: boolean;
+  submit(name: string): Promise<void>;
+}
+
+/** 名前入力モーダル */
+export function nameModal(opts: NameModalOptions): Promise<boolean> {
+  return promptModal({
+    ...opts,
+    input: {
+      maxLength: NAME_MAX,
+      placeholder: "名前（20文字まで）",
+      autocomplete: "nickname",
+      "aria-label": "名前",
+    },
   });
 }

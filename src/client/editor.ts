@@ -6,7 +6,16 @@ import { history, undo, redo } from "prosemirror-history";
 import { inputRules } from "prosemirror-inputrules";
 import { baseKeymap, chainCommands, toggleMark } from "prosemirror-commands";
 import { schema } from "../shared/schema";
-import { handleTaskBoxEvent, insertHardBreak, splitTask, taskInputRule, unwrapTaskAtStart } from "./commands";
+import {
+  autoLinkRule,
+  handleLinkPaste,
+  handleTaskBoxEvent,
+  insertHardBreak,
+  openLinkOnModClick,
+  splitTask,
+  taskInputRule,
+  unwrapTaskAtStart,
+} from "./commands";
 
 export function emptyDoc(): Node {
   return schema.node("doc", null, [schema.node("paragraph")]);
@@ -16,7 +25,7 @@ export function createState(doc: Node, extraPlugins: Plugin[] = []): EditorState
   return EditorState.create({
     doc,
     plugins: [
-      inputRules({ rules: [taskInputRule] }),
+      inputRules({ rules: [taskInputRule, autoLinkRule] }),
       keymap({
         "Mod-b": toggleMark(schema.marks.strong),
         "Mod-i": toggleMark(schema.marks.em),
@@ -39,6 +48,8 @@ export interface EditorOptions {
   state: EditorState;
   onTransaction?: (tr: Transaction, view: EditorView) => void;
   onUpdate?: (view: EditorView) => void;
+  /** Ctrl / Cmd + K：リンクの入力 */
+  onLinkShortcut?: () => void;
 }
 
 export function createView(mount: HTMLElement, opts: EditorOptions): EditorView {
@@ -47,6 +58,25 @@ export function createView(mount: HTMLElement, opts: EditorOptions): EditorView 
     attributes: { class: "editor", spellcheck: "false", "aria-label": "本文" },
     handleDOMEvents: {
       mousedown: handleTaskBoxEvent,
+      // フォーカスの出入りでツールバー（リンクの操作バー）を更新する
+      focus: (v) => {
+        opts.onUpdate?.(v);
+        return false;
+      },
+      blur: (v) => {
+        opts.onUpdate?.(v);
+        return false;
+      },
+    },
+    handlePaste: (v, event) => handleLinkPaste(v, event),
+    handleClick: (v, pos, event) => openLinkOnModClick(v, pos, event),
+    handleKeyDown(_v, event) {
+      if ((event.metaKey || event.ctrlKey) && !event.altKey && event.key.toLowerCase() === "k" && opts.onLinkShortcut) {
+        event.preventDefault();
+        opts.onLinkShortcut();
+        return true;
+      }
+      return false;
     },
     dispatchTransaction(tr) {
       view.updateState(view.state.apply(tr));

@@ -1,4 +1,5 @@
 import { Schema } from "prosemirror-model";
+import { isSafeHref } from "./constants";
 
 // DOM 型に依存しない最小限の要素型（Worker 側でも型検査を通すため）
 interface El {
@@ -61,6 +62,28 @@ export const schema = new Schema({
     em: {
       parseDOM: [{ tag: "i" }, { tag: "em" }, { style: "font-style=italic" }],
       toDOM: () => ["em", 0],
+    },
+    link: {
+      attrs: {
+        href: {
+          validate: (value: unknown) => {
+            if (!isSafeHref(value)) throw new RangeError("link href must be http, https or mailto");
+          },
+        },
+      },
+      // リンクの末尾で入力した文字はリンクに含めない
+      inclusive: false,
+      parseDOM: [
+        {
+          tag: "a[href]",
+          getAttrs: (dom) => {
+            const href = (dom as unknown as El).getAttribute("href");
+            return isSafeHref(href) ? { href } : false;
+          },
+        },
+      ],
+      // 外部サイトへ文書の URL を渡さない
+      toDOM: (mark) => ["a", { href: mark.attrs.href, rel: "noopener noreferrer nofollow", target: "_blank" }, 0],
     },
     underline: {
       parseDOM: [{ tag: "u" }, { style: "text-decoration", getAttrs: (v) => /underline/.test(v as string) && null }],

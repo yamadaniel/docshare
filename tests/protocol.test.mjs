@@ -34,9 +34,9 @@ const textOf = (doc) =>
   (J(doc).match(/"text":"([^"]*)"/g) ?? []).map((t) => t.slice(8, -1)).join("");
 
 test("セキュリティヘッダー", async () => {
-  for (const path of ["/", "/d/abcdefghijklmnopqrstuv"]) {
+  for (const [path, status] of [["/", 200], ["/d/abcdefghijklmnopqrstuv", 404]]) {
     const res = await api(path, { headers: { "Sec-Fetch-Mode": "navigate" } });
-    assert.equal(res.status, 200);
+    assert.equal(res.status, status, path);
     assert.equal(res.headers.get("referrer-policy"), "no-referrer");
     assert.equal(res.headers.get("x-robots-tag"), "noindex");
   }
@@ -225,4 +225,68 @@ test("文書作成とユーザー登録の IP レート制限", async () => {
     users.push((await api("/api/users", { method: "POST", ip, body })).status);
   }
   assert.deepEqual(users, [...Array(10).fill(201), 429]);
+});
+
+test("リンクは http・https・mailto だけを受け付ける", async () => {
+  const s = await session();
+  await s.send([insertText(1, "abc")]);
+  const addLink = (href) => ({ stepType: "addMark", from: 1, to: 4, mark: { type: "link", attrs: { href } } });
+  for (const href of ["javascript:alert(1)", "data:text/html,x", "ftp://example.com", " https://x.test", 5]) {
+    assert.equal((await s.send([addLink(href)])).code, "invalid", String(href));
+  }
+  for (const href of ["https://example.com/a?b=1", "http://example.com", "mailto:a@example.com"]) {
+    assert.equal((await s.send([addLink(href)])).type, "steps", href);
+  }
+});
+
+test("文書の HTML に本文が埋め込まれる（JavaScript を実行しない読み手向け）", async () => {
+  const s = await session();
+  const t = (text, marks) => ({ type: "text", text, ...(marks ? { marks } : {}) });
+  await s.send([
+    {
+      stepType: "replace",
+      from: 0,
+      to: 2,
+      slice: {
+        content: [
+          {
+            type: "paragraph",
+            content: [
+              t("<script>alert(1)</script> & "),
+              t("太字", [{ type: "strong" }]),
+              t(" "),
+              t("リンク", [{ type: "link", attrs: { href: 'https://example.com/?a=1&b="x"' } }]),
+            ],
+          },
+          {
+            type: "task_list",
+            content: [
+              { type: "task_item", attrs: { checked: true }, content: [t("済み")] },
+              { type: "task_item", content: [t("未完了")] },
+            ],
+          },
+        ],
+      },
+    },
+  ]);
+  s.ws.sendJson({ type: "title", version: s.version, title: "<b>会議</b>" });
+  await s.ws.until("title");
+
+  const res = await api(`/d/${s.docId}`);
+  assert.equal(res.status, 200);
+  assert.equal(res.headers.get("x-robots-tag"), "noindex");
+  assert.equal(res.headers.get("referrer-policy"), "no-referrer");
+  const html = await res.text();
+  assert.match(html, /<title>&lt;b&gt;会議&lt;\/b&gt; \| docshare<\/title>/);
+  assert.match(html, /<meta name="description" content="&lt;script&gt;alert\(1\)&lt;\/script&gt; &amp; 太字 リンク 済み 未完了">/);
+  assert.ok(!html.includes("<script>alert"), "本文はエスケープされる");
+  assert.match(html, /<strong>太字<\/strong>/);
+  assert.match(html, /<a href="https:\/\/example.com\/\?a=1&amp;b=&quot;x&quot;" rel="noopener noreferrer nofollow" target="_blank">リンク<\/a>/);
+  assert.match(html, /<li data-checked="true">☑ 済み<\/li><li data-checked="false">☐ 未完了<\/li>/);
+  assert.match(html, /<script type="module"/, "ブラウザでは通常どおり SPA が動く");
+
+  const missing = await api("/d/ZZZZZZZZZZZZZZZZZZZZZZ");
+  assert.equal(missing.status, 404);
+  assert.equal((await api("/d/short")).status, 404);
+  assert.equal(await (await api("/robots.txt")).text(), "User-agent: *\nAllow: /\n");
 });

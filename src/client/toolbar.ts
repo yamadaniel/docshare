@@ -2,7 +2,7 @@ import type { EditorView } from "prosemirror-view";
 import { toggleMark } from "prosemirror-commands";
 import type { Command } from "prosemirror-state";
 import { schema } from "../shared/schema";
-import { inTask, markActive, toggleTask } from "./commands";
+import { inTask, linkAt, markActive, removeLink, toggleTask } from "./commands";
 import { h } from "./dom";
 
 export interface Toolbar {
@@ -14,6 +14,8 @@ export interface Toolbar {
 interface Handlers {
   onHistory(): void;
   onShare(): void;
+  /** リンクの入力（新規・編集） */
+  onLink(): void;
 }
 
 export function createToolbar(getView: () => EditorView | null, handlers: Handlers): Toolbar {
@@ -50,6 +52,39 @@ export function createToolbar(getView: () => EditorView | null, handlers: Handle
     return btn;
   };
 
+  function linkButton(): HTMLButtonElement {
+    const btn = button("🔗", "リンク", "tb-link", handlers.onLink);
+    updaters.push((view) => {
+      const on = !!linkAt(view.state);
+      btn.classList.toggle("active", on);
+      btn.setAttribute("aria-pressed", String(on));
+    });
+    return btn;
+  }
+
+  // カーソルがリンク上にあるときだけ出す操作バー
+  const linkUrl = h("span", { class: "link-url" });
+  const linkBar = h(
+    "div",
+    { class: "link-bar", hidden: true },
+    linkUrl,
+    button("開く", "リンクを開く", "lb-btn", () => {
+      const view = getView();
+      const link = view && linkAt(view.state);
+      if (link) window.open(link.href, "_blank", "noopener,noreferrer");
+    }),
+    button("編集", "リンクを編集", "lb-btn", handlers.onLink),
+    button("解除", "リンクを解除", "lb-btn", () => {
+      const view = getView();
+      if (view) removeLink(view.state, view.dispatch);
+    }),
+  );
+  updaters.push((view) => {
+    const link = view.hasFocus() ? linkAt(view.state) : null;
+    linkBar.hidden = !link;
+    if (link) linkUrl.textContent = link.href.replace(/^https?:\/\//, "");
+  });
+
   const { strong, em, underline } = schema.marks;
   const el = h(
     "div",
@@ -58,9 +93,11 @@ export function createToolbar(getView: () => EditorView | null, handlers: Handle
     commandButton("I", "斜体", "tb-italic", toggleMark(em), (v) => markActive(v.state, em)),
     commandButton("U", "下線", "tb-underline", toggleMark(underline), (v) => markActive(v.state, underline)),
     commandButton("☑", "チェックボックス", "tb-check", toggleTask, (v) => inTask(v.state)),
+    linkButton(),
     h("span", { class: "tb-spacer" }),
     button("履歴", "履歴", "tb-text", handlers.onHistory),
     button("共有", "共有", "tb-text", handlers.onShare),
+    linkBar,
   );
 
   // ソフトウェアキーボードの直上へ追従
