@@ -5,7 +5,8 @@ import { createView } from "./editor";
 import { createToolbar } from "./toolbar";
 import { h, toast } from "./dom";
 import { createHistorySheet } from "./history";
-import { nameModal, promptModal } from "./modal";
+import { confirmModal, nameModal, promptModal } from "./modal";
+import type { ArchiveInfo } from "../shared/messages";
 import { removeRecent, touchRecent } from "./recent";
 import { DocConnection } from "./sync";
 import { createThemeToggle } from "./theme";
@@ -15,6 +16,7 @@ export interface PageContext {
   getUser(): User;
   setUser(user: User): void;
   showNotFound(): void;
+  navigate(path: string): void;
 }
 
 const UNTITLED = "無題の文書";
@@ -39,6 +41,8 @@ export function renderDocPage(app: HTMLElement, docId: string, ctx: PageContext)
   let title = "";
   /** オフライン中に変更した文書名。再接続後に送る */
   let pendingTitle: string | null = null;
+  /** 読み取り専用（完了・期限切れ）なら理由。編集できるなら null */
+  let archive: ArchiveInfo | null = null;
 
   const titleInput = h("input", {
     class: "title-input",
@@ -61,6 +65,55 @@ export function renderDocPage(app: HTMLElement, docId: string, ctx: PageContext)
     nameChip,
   );
   const banner = h("div", { class: "status-banner", role: "status", hidden: true }, "オフライン。再接続中…");
+  const archiveText = h("p", { class: "archive-text" });
+  const archiveActions = h("div", { class: "archive-actions" });
+  const archiveBanner = h("div", { class: "archive-banner", role: "status", hidden: true }, archiveText, archiveActions);
+
+  /** 読み取り専用の表示と、続きの文書・取り消しの操作を出す */
+  function applyArchive(next: ArchiveInfo | null): void {
+    archive = next;
+    const readOnly = next !== null;
+    view?.setProps({ editable: () => archive === null });
+    titleInput.readOnly = readOnly;
+    toolbar.setReadOnly(readOnly);
+    archiveBanner.hidden = !readOnly;
+    if (!next) return;
+    archiveText.textContent =
+      next.reason === "manual"
+        ? `${next.name || "誰か"}さんが完了にした文書。読み取り専用。`
+        : "30 日間更新がなかったため、読み取り専用になった。";
+    const actions: HTMLElement[] = [];
+    if (next.successor) {
+      actions.push(h("a", { class: "btn primary small", href: `/d/${next.successor}` }, "続きの文書を開く"));
+    } else {
+      const cont = h("button", { class: "btn primary small", type: "button" }, "続きを新しい文書で");
+      cont.addEventListener("click", () => void continueDoc(cont));
+      actions.push(cont);
+      if (next.reason === "manual" && next.userId === ctx.getUser().userId) {
+        const reopen = h("button", { class: "btn small", type: "button" }, "完了を取り消す");
+        reopen.addEventListener("click", () => {
+          if (!conn.sendReopen()) toast("オフラインのため取り消せない");
+        });
+        actions.push(reopen);
+      }
+    }
+    archiveActions.replaceChildren(...actions);
+  }
+
+  /** 本文を引き継いだ新しい文書を作って開く（すでにあればそれを開く） */
+  async function continueDoc(btn: HTMLButtonElement): Promise<void> {
+    btn.disabled = true;
+    try {
+      const res = await fetch(`/api/docs/${docId}/continue`, { method: "POST" });
+      if (res.status === 429) throw new Error("混み合っているため、少し待ってから試す");
+      if (!res.ok) throw new Error("続きの文書を作れなかった");
+      const { docId: next } = (await res.json()) as { docId: string };
+      ctx.navigate(`/d/${next}`);
+    } catch (err) {
+      toast(err instanceof Error ? err.message : "続きの文書を作れなかった");
+      btn.disabled = false;
+    }
+  }
   // サーバーが埋め込んだ本文があれば、接続が終わるまでの表示に使う（文書名は header にあるので見出しは外す）
   const ssr = app.querySelector<HTMLElement>(`.ssr[data-doc-id="${docId}"]`);
   ssr?.querySelector("h1")?.remove();
@@ -87,6 +140,7 @@ export function renderDocPage(app: HTMLElement, docId: string, ctx: PageContext)
     },
     onInit(msg) {
       applyTitle(msg.title);
+      applyArchive(msg.archive);
       if (pendingTitle !== null) {
         const next = pendingTitle;
         pendingTitle = null;
@@ -116,6 +170,10 @@ export function renderDocPage(app: HTMLElement, docId: string, ctx: PageContext)
       historySheet.rename(userId, name);
     },
     onRevision: () => historySheet.refresh(),
+    onArchive(next) {
+      applyArchive(next);
+      historySheet.refresh();
+    },
     onNotFound() {
       removeRecent(docId);
       ctx.showNotFound();
@@ -126,11 +184,21 @@ export function renderDocPage(app: HTMLElement, docId: string, ctx: PageContext)
       location.reload();
     },
     onReset(reason) {
-      toast(reason === "too_large" ? "サイズ上限を超えたため編集を取り消した" : "同期できない編集を取り消した");
+      toast(
+        reason === "too_large"
+          ? "サイズ上限を超えたため編集を取り消した"
+          : reason === "archived"
+            ? "読み取り専用になったため、送れなかった編集を取り消した"
+            : "同期できない編集を取り消した",
+      );
     },
   });
 
-  const historySheet = createHistorySheet({ docId, restore: (revId) => conn.sendRestore(revId) });
+  const historySheet = createHistorySheet({
+    docId,
+    restore: (revId) => conn.sendRestore(revId),
+    canRestore: () => archive === null,
+  });
 
   /** 選択範囲（またはカーソル位置のリンク）にリンク先を設定する */
   async function editLink(): Promise<void> {
@@ -162,6 +230,14 @@ export function renderDocPage(app: HTMLElement, docId: string, ctx: PageContext)
   const toolbar = createToolbar(() => view, {
     onHistory: () => historySheet.open(),
     onLink: () => void editLink(),
+    async onClose() {
+      const ok = await confirmModal({
+        title: "完了にする",
+        description: "完了にすると、誰も編集できなくなる（読み取り専用）。取り消せるのは自分だけ。続きは新しい文書で書ける。",
+        okLabel: "完了にする",
+      });
+      if (ok && !conn.sendClose()) toast("オフラインのため完了にできない");
+    },
     async onShare() {
       const url = `${location.origin}/d/${docId}`;
       if (navigator.share) {
@@ -215,7 +291,7 @@ export function renderDocPage(app: HTMLElement, docId: string, ctx: PageContext)
     });
   });
 
-  app.replaceChildren(header, banner, mount, toolbar.el);
+  app.replaceChildren(header, banner, archiveBanner, mount, toolbar.el);
 
   return () => {
     conn.destroy();

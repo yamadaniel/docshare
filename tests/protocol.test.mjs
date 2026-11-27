@@ -8,6 +8,7 @@ import {
   hello,
   insertText,
   openWs,
+  BASE,
   d1Local,
   randomSecret,
   registerUser,
@@ -271,6 +272,72 @@ test("hello を送らない接続は 10 秒で閉じられる", async () => {
   ws.send("ping");
   await sleep(12_000);
   assert.equal(ws.closeCode, 4408);
+});
+
+test("完了にすると誰も編集できず、取り消せるのは完了にした本人だけ", async () => {
+  const s = await session();
+  await s.send([insertText(1, "memo")]);
+  const other = await registerUser("他人");
+  const { ws: ws2 } = await hello(s.docId, other);
+
+  s.ws.sendJson({ type: "close" });
+  const closed = await s.ws.until("archive");
+  assert.equal(closed.archive.reason, "manual");
+  assert.equal(closed.archive.userId, s.user.userId);
+  assert.equal(closed.archive.name, "テスター");
+  assert.equal((await ws2.until("archive")).archive.reason, "manual", "他の接続にも届く");
+
+  for (const msg of [
+    { type: "steps", version: s.version, clientId: "c2", steps: [insertText(1, "x")] },
+    { type: "title", version: s.version, title: "変更" },
+    { type: "restore", revId: 1 },
+    { type: "close" },
+    { type: "reopen" },
+  ]) {
+    ws2.sendJson(msg);
+    assert.equal((await ws2.until("error")).code, "archived", msg.type);
+  }
+  const { init } = await hello(s.docId, other);
+  assert.equal(init.archive.reason, "manual", "あとから開いた人にも届く");
+
+  s.ws.sendJson({ type: "reopen" });
+  assert.equal((await s.ws.until("archive")).archive, null);
+  assert.equal((await s.send([insertText(1, "x")])).type, "steps", "取り消し後は編集できる");
+
+  const { revisions } = await (await api(`/api/docs/${s.docId}/revisions?limit=5`)).json();
+  assert.deepEqual(
+    revisions.slice(0, 3).map((r) => r.kind),
+    ["steps", "reopen", "close"],
+  );
+});
+
+test("完了した文書から、本文を引き継いだ続きの文書を作れる", async () => {
+  const s = await session();
+  await s.send([insertText(1, "続きの元")]);
+  s.ws.sendJson({ type: "title", version: s.version, title: "週報" });
+  await s.ws.until("title");
+  assert.equal((await api(`/api/docs/${s.docId}/continue`, { method: "POST" })).status, 409, "完了前は作れない");
+
+  s.ws.sendJson({ type: "close" });
+  await s.ws.until("archive");
+  const [r1, r2] = await Promise.all([
+    api(`/api/docs/${s.docId}/continue`, { method: "POST" }),
+    api(`/api/docs/${s.docId}/continue`, { method: "POST" }),
+  ]);
+  const { docId } = await r1.json();
+  assert.equal((await r2.json()).docId, docId, "同時に押しても続きは 1 つ");
+  assert.match(docId, /^[0-9A-Za-z]{22}$/);
+  assert.equal((await s.ws.until("archive")).archive.successor, docId);
+
+  const { init } = await hello(docId, s.user);
+  assert.equal(init.title, "週報");
+  assert.equal(init.archive, null);
+  assert.equal(init.doc.content[0].content[0].text, "前の文書");
+  assert.equal(init.doc.content[0].content[0].marks[0].attrs.href, `${BASE}/d/${s.docId}`);
+  assert.equal(textOf(init.doc), "前の文書続きの元");
+
+  s.ws.sendJson({ type: "reopen" });
+  assert.equal((await s.ws.until("error")).code, "archived", "続きがある文書は取り消せない");
 });
 
 test("リンクは http・https・mailto だけを受け付ける", async () => {

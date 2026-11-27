@@ -8,12 +8,16 @@ import { h } from "./dom";
 export interface Toolbar {
   el: HTMLElement;
   update(view: EditorView): void;
+  /** 読み取り専用のあいだは書式ボタンと「完了」を使えなくする */
+  setReadOnly(readOnly: boolean): void;
   destroy(): void;
 }
 
 interface Handlers {
   onHistory(): void;
   onShare(): void;
+  /** 文書を「完了」にする */
+  onClose(): void;
   /** リンクの入力（新規・編集） */
   onLink(): void;
 }
@@ -86,15 +90,20 @@ export function createToolbar(getView: () => EditorView | null, handlers: Handle
   });
 
   const { strong, em, underline } = schema.marks;
-  const el = h(
-    "div",
-    { class: "toolbar", role: "toolbar", "aria-label": "書式" },
+  const formatButtons = [
     commandButton("B", "太字", "tb-bold", toggleMark(strong), (v) => markActive(v.state, strong)),
     commandButton("I", "斜体", "tb-italic", toggleMark(em), (v) => markActive(v.state, em)),
     commandButton("U", "下線", "tb-underline", toggleMark(underline), (v) => markActive(v.state, underline)),
     commandButton("☑", "チェックボックス", "tb-check", toggleTask, (v) => inTask(v.state)),
     linkButton(),
+  ];
+  const closeBtn = button("完了", "完了にする（読み取り専用にする）", "tb-text tb-close", handlers.onClose);
+  const el = h(
+    "div",
+    { class: "toolbar", role: "toolbar", "aria-label": "書式" },
+    ...formatButtons,
     h("span", { class: "tb-spacer" }),
+    closeBtn,
     button("履歴", "履歴", "tb-text", handlers.onHistory),
     button("共有", "共有", "tb-text", handlers.onShare),
     linkBar,
@@ -117,6 +126,11 @@ export function createToolbar(getView: () => EditorView | null, handlers: Handle
     el,
     update(view) {
       for (const u of updaters) u(view);
+    },
+    setReadOnly(readOnly) {
+      for (const btn of formatButtons) btn.disabled = readOnly;
+      closeBtn.hidden = readOnly;
+      if (readOnly) linkBar.hidden = true;
     },
     destroy() {
       vv?.removeEventListener("resize", reposition);

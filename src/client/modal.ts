@@ -106,3 +106,49 @@ export function nameModal(opts: NameModalOptions): Promise<boolean> {
     },
   });
 }
+
+interface ConfirmModalOptions {
+  title: string;
+  description: string;
+  okLabel: string;
+}
+
+/** 確認モーダル。OK で true、キャンセルで false */
+export function confirmModal(opts: ConfirmModalOptions): Promise<boolean> {
+  return new Promise((resolve) => {
+    const ok = h("button", { class: "btn primary", type: "submit" }, opts.okLabel);
+    const cancel = h("button", { class: "btn", type: "button" }, "キャンセル");
+    const form = h(
+      "form",
+      { class: "modal", role: "alertdialog", "aria-modal": "true", "aria-label": opts.title },
+      h("h2", null, opts.title),
+      h("p", null, opts.description),
+      h("div", { class: "modal-actions" }, cancel, ok),
+    );
+    const overlay = h("div", { class: "overlay" }, form);
+    const opener = document.activeElement as HTMLElement | null;
+    let releaseInert = () => {};
+    const close = (result: boolean) => {
+      document.removeEventListener("keydown", onKey);
+      overlay.remove();
+      releaseInert();
+      if (opener && opener !== document.body && opener.isConnected) opener.focus();
+      resolve(result);
+    };
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") close(false);
+    };
+    cancel.addEventListener("click", () => close(false));
+    overlay.addEventListener("click", (e) => {
+      if (e.target === overlay) close(false);
+    });
+    form.addEventListener("submit", (e) => {
+      e.preventDefault();
+      close(true);
+    });
+    document.addEventListener("keydown", onKey);
+    document.body.append(overlay);
+    releaseInert = inertApp();
+    cancel.focus();
+  });
+}

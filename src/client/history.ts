@@ -28,6 +28,8 @@ interface Options {
   docId: string;
   /** 復元を依頼する。送信できなければ false */
   restore(revId: number): boolean;
+  /** 読み取り専用の文書では復元できない */
+  canRestore(): boolean;
 }
 
 /** 同じ人の 60 秒以内の連続リビジョンをまとめる（revisions は新しい順） */
@@ -72,6 +74,8 @@ function formatTime(ms: number): string {
 function statsNode(g: Group): HTMLElement {
   if (g.kind === "title") return h("span", { class: "rev-stats" }, "文書名を変更");
   if (g.kind === "restore") return h("span", { class: "rev-stats" }, "過去の版に復元");
+  if (g.kind === "close") return h("span", { class: "rev-stats" }, "完了にした");
+  if (g.kind === "reopen") return h("span", { class: "rev-stats" }, "完了を取り消した");
   if (!g.added && !g.deleted) return h("span", { class: "rev-stats" }, "書式・チェック");
   return h(
     "span",
@@ -181,7 +185,7 @@ export function createHistorySheet(opts: Options): HistorySheet {
       content.append(DOMSerializer.fromSchema(schema).serializeFragment(doc.content));
       body.replaceChildren(content);
       body.scrollTop = 0;
-      foot.hidden = false;
+      foot.hidden = !opts.canRestore();
     } catch {
       if (preview === g) body.replaceChildren(note("この版を読み込めなかった。"));
     }

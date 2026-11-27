@@ -90,6 +90,40 @@ test("同時入力・書式・チェック・文書名が同期する", async ()
   await close(a, b);
 });
 
+test("完了で読み取り専用になり、本人は取り消せ、続きの文書を作れる", async () => {
+  const { a, b } = await pair();
+  await a.click(".editor");
+  await a.keyboard.type("終わったメモ");
+  await a.waitForTimeout(1200);
+
+  await a.click(".tb-close");
+  await a.click(".overlay .btn.primary");
+  for (const p of [a, b]) {
+    await p.waitForSelector(".archive-banner:not([hidden])");
+    assert.equal(await p.getAttribute(".editor", "contenteditable"), "false");
+    assert.equal(await p.$eval(".title-input", (e) => e.readOnly), true);
+    assert.equal(await p.isVisible(".tb-close"), false);
+    assert.equal(await p.$eval(".tb-bold", (e) => e.disabled), true);
+  }
+  assert.match(await b.textContent(".archive-text"), /Aliceさんが完了にした/);
+  assert.equal(await b.isVisible("text=完了を取り消す"), false, "取り消しは本人だけ");
+
+  await a.click("text=完了を取り消す");
+  await b.waitForSelector(".archive-banner", { state: "hidden" });
+  assert.equal(await b.getAttribute(".editor", "contenteditable"), "true");
+
+  await a.click(".tb-close");
+  await a.click(".overlay .btn.primary");
+  await b.waitForSelector(".archive-banner:not([hidden])");
+  await b.click("text=続きを新しい文書で");
+  await b.waitForURL((u) => u.pathname !== new URL(a.url()).pathname);
+  await b.waitForFunction(() => document.querySelector(".editor")?.textContent === "前の文書終わったメモ");
+  assert.equal(await b.getAttribute(".editor", "contenteditable"), "true");
+  await a.waitForSelector("text=続きの文書を開く");
+  assert.equal(new URL(await a.getAttribute("text=続きの文書を開く", "href"), a.url()).pathname, new URL(b.url()).pathname);
+  await close(a, b);
+});
+
 test("行のチェックボックス化と解除が同期する", async () => {
   const { a, b } = await pair();
   await a.click(".editor");

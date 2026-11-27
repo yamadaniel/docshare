@@ -9,6 +9,7 @@
 - 紹介ページ：`/about`（静的 HTML。トップの「docshare とは」から開く。名前登録なしで読める。ここだけ `noindex` を付けず検索エンジンに載せる）
 - 同期：prosemirror-collab。文書ごとに 1 つの Durable Object（DocRoom）が編集を確定・保存する
 - 履歴：編集はすべてリビジョンとして編集者付きで保存。任意の版に戻せる
+- 完了・アーカイブ：ツールバーの「完了」で文書を読み取り専用にできる（誰でも押せる。取り消せるのは押した本人だけ）。最後の更新から 30 日たった文書も自動で読み取り専用になる。読み取り専用の文書からは「続きを新しい文書で」で、本文と文書名を引き継いだ新しい文書を作れる（冒頭に元の文書へのリンクが入る。続きは 1 文書につき 1 つ）
 - ユーザー名：D1 に保存。名前を変えると過去の履歴の表示名も変わる
 
 ## 必要なもの
@@ -109,6 +110,7 @@ node tests/run.mjs tests/protocol.test.mjs
 | `ratelimits` | IP 単位のレート制限。`CREATE_LIMITER` は文書作成・ユーザー登録（60 秒あたり 10 回）、`WS_LIMITER` は WebSocket 接続（60 秒あたり 60 回）。`namespace_id` はアカウント内で一意な整数文字列。バインディングが使えない環境では Worker 内の簡易カウンターで代替する |
 | `d1_databases` | ユーザー情報（`users` テーブル）と文書作成数（`create_quota` テーブル）。マイグレーションは `migrations/` |
 | `GLOBAL_CREATE_PER_MINUTE`（任意の環境変数） | 全体で 1 分あたりに作れる文書の数。未設定なら 60 |
+| `ARCHIVE_AFTER_MS`（任意の環境変数） | 最後の更新から読み取り専用になるまでの時間（ミリ秒）。未設定なら 30 日 |
 
 ## 構成
 
@@ -135,6 +137,7 @@ tests           試験（npm test）
 | GET | /api/docs/{docId}/revisions/{revId} | その時点の文書 JSON |
 | POST | /api/users | 初回登録 `{ userId, secret, name }` |
 | PATCH | /api/users/me | 名前変更 `{ name }`（`X-User-Id` / `X-User-Secret` ヘッダーで認証） |
+| POST | /api/docs/{docId}/continue | 読み取り専用の文書から続きの文書を作る → `{ docId }`（作成済みならその docId。文書作成と同じレート制限） |
 | GET | /api/docs/{docId}/ws | WebSocket（DocRoom へ転送） |
 | GET | /about | 紹介ページ（静的 HTML） |
 | GET | /d/{docId} | 文書画面。本文を埋め込んだ HTML を返す（存在しない文書は 404） |
@@ -155,6 +158,7 @@ WebSocket のメッセージ型は `src/shared/messages.ts` を参照。
 | WebSocket 接続 | IP ごとに 60 秒あたり 60 回 |
 | WebSocket 同時接続 | 1 文書あたり 100 本、うち同じ IP から 20 本 |
 | hello までの猶予 | 接続から 10 秒。過ぎると閉じる |
+| 自動アーカイブ | 最後の更新（本文・文書名・完了の取り消し）から 30 日 |
 
 ## 無料枠の目安
 
