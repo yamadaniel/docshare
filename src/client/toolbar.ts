@@ -24,10 +24,25 @@ interface Handlers {
   onLink(): void;
 }
 
+/** 線で描いたアイコン。固定の図形だけを使い、利用者の入力は含まない */
+const ICONS = {
+  check: '<rect x="4" y="4" width="16" height="16" rx="3.5"/><path d="M8.2 12.3l2.6 2.6 5-5.4"/>',
+  link: '<path d="M10 14a5 5 0 0 0 7 0l3-3a5 5 0 0 0-7-7l-1.2 1.2"/><path d="M14 10a5 5 0 0 0-7 0l-3 3a5 5 0 0 0 7 7l1.2-1.2"/>',
+};
+
+function icon(name: keyof typeof ICONS): SVGSVGElement {
+  const svg = document.createElementNS("http://www.w3.org/2000/svg", "svg");
+  svg.setAttribute("viewBox", "0 0 24 24");
+  svg.setAttribute("class", "tb-icon");
+  svg.setAttribute("aria-hidden", "true");
+  svg.innerHTML = ICONS[name];
+  return svg;
+}
+
 export function createToolbar(getView: () => EditorView | null, handlers: Handlers): Toolbar {
   const updaters: ((view: EditorView) => void)[] = [];
 
-  const button = (label: string, title: string, cls: string, action: () => void): HTMLButtonElement => {
+  const button = (label: string | Node, title: string, cls: string, action: () => void): HTMLButtonElement => {
     const btn = h("button", { type: "button", class: `tb-btn ${cls}`, title, "aria-label": title }, label);
     // フォーカスを奪わずキーボードを閉じない
     btn.addEventListener("pointerdown", (e) => e.preventDefault());
@@ -40,7 +55,7 @@ export function createToolbar(getView: () => EditorView | null, handlers: Handle
   };
 
   const commandButton = (
-    label: string,
+    label: string | Node,
     title: string,
     cls: string,
     command: Command,
@@ -59,7 +74,7 @@ export function createToolbar(getView: () => EditorView | null, handlers: Handle
   };
 
   function linkButton(): HTMLButtonElement {
-    const btn = button("🔗", "リンク", "tb-link", handlers.onLink);
+    const btn = button(icon("link"), "リンク", "tb-link", handlers.onLink);
     updaters.push((view) => {
       const on = !!linkAt(view.state);
       btn.classList.toggle("active", on);
@@ -96,16 +111,18 @@ export function createToolbar(getView: () => EditorView | null, handlers: Handle
     commandButton("B", "太字", "tb-bold", toggleMark(strong), (v) => markActive(v.state, strong)),
     commandButton("I", "斜体", "tb-italic", toggleMark(em), (v) => markActive(v.state, em)),
     commandButton("U", "下線", "tb-underline", toggleMark(underline), (v) => markActive(v.state, underline)),
-    commandButton("☑", "チェックボックス", "tb-check", toggleTask, (v) => inTask(v.state)),
+    commandButton(icon("check"), "チェックボックス", "tb-check", toggleTask, (v) => inTask(v.state)),
     linkButton(),
-    button("🖼", "写真", "tb-image", handlers.onImage),
   ];
+  // 絵文字のアイコンは端末ごとに見た目が変わって伝わりにくいので、文字で示す
+  const imageBtn = button("写真", "写真を貼る", "tb-text tb-image", handlers.onImage);
   const closeBtn = button("完了", "完了にする（読み取り専用にする）", "tb-text tb-close", handlers.onClose);
   const el = h(
     "div",
     { class: "toolbar", role: "toolbar", "aria-label": "書式" },
     ...formatButtons,
     h("span", { class: "tb-spacer" }),
+    imageBtn,
     closeBtn,
     button("履歴", "履歴", "tb-text", handlers.onHistory),
     button("共有", "共有", "tb-text", handlers.onShare),
@@ -131,7 +148,7 @@ export function createToolbar(getView: () => EditorView | null, handlers: Handle
       for (const u of updaters) u(view);
     },
     setReadOnly(readOnly) {
-      for (const btn of formatButtons) btn.disabled = readOnly;
+      for (const btn of [...formatButtons, imageBtn]) btn.disabled = readOnly;
       closeBtn.hidden = readOnly;
       if (readOnly) linkBar.hidden = true;
     },

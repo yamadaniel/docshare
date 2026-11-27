@@ -126,10 +126,12 @@
         <div class="more-inner">
           <h2 id="more-title">メモに要るものは、そろっている。</h2>
           <dl>
-            <div><dt>チェックボックス</dt><dd>行頭で「[ ]」と空白を打つか、☑ ボタンでやることリストになる。</dd></div>
+            <div><dt>チェックボックス</dt><dd>行頭で「[ ]」と空白を打つか、チェックボックスのボタンでやることリストになる。</dd></div>
             <div><dt>太字・斜体・下線</dt><dd>大事なところだけ目立たせる。</dd></div>
             <div><dt>リンク</dt><dd>URL を貼るとそのままリンクになる。</dd></div>
+            <div><dt>写真</dt><dd>「写真」ボタンで貼れる。自動で軽く縮めて送り、撮影場所などの情報は消える。1 つの文書に 20 枚まで。</dd></div>
             <div><dt>編集履歴</dt><dd>誰がいつ書いたかが残り、どの版にも戻せる。</dd></div>
+            <div><dt>完了</dt><dd>書き終えたら「完了」で読み取り専用に。最新版だけを残して履歴を片づける。30 日更新がない文書も自動で読み取り専用になる。</dd></div>
             <div><dt>ライト・ダーク</dt><dd>画面上の太陽と月のボタンで切り替える。</dd></div>
             <div><dt>AI にも読める</dt><dd>リンクを Claude・ChatGPT・Gemini などに渡すと、本文を読んでもらえる。</dd></div>
           </dl>
@@ -139,27 +141,27 @@
       <section class="compare" aria-labelledby="compare-title">
         <div class="compare-inner">
           <h2 id="compare-title">Google ドキュメント<span class="nw">との違い</span></h2>
-          <p class="compare-lead">メモをすぐ共有したいなら、docshare のほうが早い。</p>
+          <p class="compare-lead">メモ一枚を共有するのに、Google ドキュメントは大げさすぎる。</p>
           <div class="table-wrap">
             <table>
               <thead>
                 <tr><th scope="col"></th><th scope="col">docshare</th><th scope="col">Google ドキュメント</th></tr>
               </thead>
               <tbody>
-                <tr><th scope="row">始めるまで</th><td class="good">名前を決めるだけ。登録もログインもいらない</td><td>Google アカウントへのログインが前提。スマホではアプリを入れるよう求められる</td></tr>
-                <tr><th scope="row">共有</th><td class="good">リンクを送るだけ。受け取った人はすぐ書ける</td><td>共有のたびに、相手やリンクの権限を選ぶ</td></tr>
-                <tr><th scope="row">画面</th><td class="good">メモに要るものだけ。迷わない</td><td>メニューとボタンが多く、メモには大げさ</td></tr>
-                <tr><th scope="row">軽さ</th><td class="good">開いてすぐ書ける</td><td>多機能なぶん、読み込みが重め</td></tr>
-                <tr><th scope="row">AI に読ませる</th><td class="good">リンクを渡せば本文を読める</td><td>共有設定や AI の種類によっては読めない</td></tr>
-                <tr><th scope="row">預ける情報</th><td class="good">名前だけ</td><td>Google アカウントにひもづく</td></tr>
-                <tr><th scope="row">書式・画像</th><td class="bad">太字・斜体・下線・リンク・チェックボックスだけ。画像は貼れない</td><td>見出し、表、画像などを使える</td></tr>
+                <tr><th scope="row">始めるまで</th><td class="good">名前を決めるだけ。登録もログインもいらない</td><td>Google アカウントへのログインが前提。スマホのブラウザでは書きにくく、アプリを入れるよう促される</td></tr>
+                <tr><th scope="row">共有</th><td class="good">リンクを送るだけ。受け取った人はすぐ書ける</td><td>共有のたびに相手や権限を設定する。設定を間違えると相手が開けない</td></tr>
+                <tr><th scope="row">画面</th><td class="good">メモに要るものだけ。迷わない</td><td>メニューとツールバーだらけ。買い物メモにワープロは要らない</td></tr>
+                <tr><th scope="row">軽さ</th><td class="good">開いてすぐ書ける</td><td>開くまで待たされる。古いスマホではもたつきやすい</td></tr>
+                <tr><th scope="row">AI に読ませる</th><td class="good">リンクを渡せば本文を読める</td><td>共有設定しだい。ログインが要る文書は AI が中身を読めない</td></tr>
+                <tr><th scope="row">預ける情報</th><td class="good">名前だけ</td><td>書いた内容はすべて Google アカウントにひもづいて残る</td></tr>
+                <tr><th scope="row">書式</th><td class="bad">太字・斜体・下線・リンク・チェックボックスと写真だけ。見出しや表はない</td><td>見出し、表、文字の色や大きさまで。メモには多すぎるほど</td></tr>
                 <tr><th scope="row">一緒に書くとき</th><td class="bad">見えるのは接続人数だけ。コメントもない</td><td>相手のカーソル、コメント、提案モードがある</td></tr>
-                <tr><th scope="row">文書の管理</th><td class="bad">一覧はその端末で開いた文書だけ。削除・書き出しはできない</td><td>ドライブで整理・削除でき、PDF などで保存できる</td></tr>
-                <tr><th scope="row">閲覧だけの共有</th><td class="bad">できない。リンクを知っている人は誰でも書ける</td><td>閲覧・コメント・編集を分けられる</td></tr>
+                <tr><th scope="row">文書の管理</th><td class="bad">一覧はその端末で開いた文書だけ。削除・書き出しはできない</td><td>ドライブで整理・削除・書き出しができる。そのぶんファイルがたまっていく</td></tr>
+                <tr><th scope="row">閲覧だけの共有</th><td class="bad">できない。リンクを知っている人は誰でも書ける</td><td>閲覧・コメント・編集を分けられる。そのぶん設定の手間がある</td></tr>
               </tbody>
             </table>
           </div>
-          <p class="compare-note">ちょっとした共有メモなら docshare。きちんとした文書づくりや権限の管理が要るなら Google ドキュメント。docshare は個人の運営で、稼働やサポートの保証はない。</p>
+          <p class="compare-note">ちょっとした共有メモなら docshare。きちんとした文書づくりや権限の管理が要るなら Google ドキュメント。</p>
         </div>
       </section>
 
