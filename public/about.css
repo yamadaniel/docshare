@@ -121,27 +121,26 @@ a:focus-visible, .btn:focus-visible { outline: 3px solid var(--accent); outline-
 }
 .tap-text { color: color-mix(in srgb, var(--sub) calc(clamp(0, (var(--p) - var(--tap)) * 60, 1) * 100%), var(--ink)); }
 .finger {
-  /* 位置（--x・--y：チェックボックスの中心）は about.js が測って入れる。指先（SVG の右端）をそこへ合わせる */
-  position: absolute; left: var(--x, 0); top: var(--y, 0); width: 186px; height: 68px; pointer-events: none;
-  margin: -27.6px 0 0 -182px; transform-origin: 182px 27.6px;
+  /* 位置（--x・--y：チェックボックスの中心）は about.js が測って入れる。指先（--tx・--ty）をそこへ合わせる */
+  position: absolute; left: var(--x, 0); top: var(--y, 0); height: 112px; max-width: none; pointer-events: none;
+  margin: calc(var(--ty) * -1) 0 0 calc(var(--tx) * -1); transform-origin: var(--tx) var(--ty);
   --in: clamp(0, calc((var(--p) - var(--tap) + .1) / .08), 1);
   --out: clamp(0, calc((var(--p) - var(--tap) - .03) / .08), 1);
   /* 指が離れている距離。画面の上の外まで下がる */
   --away: calc((1 - var(--in) + var(--out)) * (70vh + 200px));
   /* 触れる直前に少し押し込む */
   --press: clamp(0, calc(1 - max(var(--p) - var(--tap), var(--tap) - var(--p)) * 40), 1);
-  filter: drop-shadow(0 12px 10px rgba(20, 30, 60, .22)) drop-shadow(0 2px 2px rgba(60, 30, 10, .18));
+  filter: drop-shadow(0 10px 12px rgba(20, 30, 60, .2)) drop-shadow(0 1px 2px rgba(80, 40, 20, .25));
 }
-.finger svg { display: block; width: 100%; height: 100%; }
-/* 左上から右下へ伸びる指（指の向きは 40 度下向き） */
+/* 写真の手（ぱくたそ）を切り抜いたもの。指は下向きで、左上から少し右下へ向けて伸ばす */
 .finger.left {
-  --tap: .7;
-  transform: translate(calc(var(--away) * -.766 + var(--press) * 2px), calc(var(--away) * -.643 + var(--press) * 2px)) rotate(40deg);
+  --tap: .7; --tx: 67px; --ty: 108.5px; width: 93px;
+  transform: translate(calc(var(--away) * -.342), calc(var(--away) * -.94 + var(--press) * 2px)) rotate(-20deg);
 }
-/* 右上から左下へ伸びる指（左右反転してから 40 度下向き） */
+/* 右上から少し左下へ向けて伸ばす */
 .finger.right {
-  --tap: .86;
-  transform: translate(calc(var(--away) * .766 - var(--press) * 2px), calc(var(--away) * -.643 + var(--press) * 2px)) rotate(-40deg) scaleX(-1);
+  --tap: .86; --tx: 26.8px; --ty: 108.5px; width: 106px;
+  transform: translate(calc(var(--away) * .342), calc(var(--away) * -.94 + var(--press) * 2px)) rotate(20deg);
 }
 
 /* 2. 写真が広がる */
