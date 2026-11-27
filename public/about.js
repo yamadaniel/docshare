@@ -18,7 +18,19 @@
       el.style.setProperty("--p", clamp((vh - r.top) / (vh + r.height)).toFixed(4));
     });
   }
+  // 指の位置を、狙うチェックボックスの中心に合わせる（拡大・移動の影響を受けない offset で測る）
+  var fingers = Array.prototype.slice.call(document.querySelectorAll(".finger"));
+  function placeFingers() {
+    fingers.forEach(function (el) {
+      var box = document.getElementById(el.getAttribute("data-target"));
+      if (!box) return;
+      el.style.setProperty("--x", box.offsetLeft + box.offsetWidth / 2 + "px");
+      el.style.setProperty("--y", box.offsetTop + box.offsetHeight / 2 + "px");
+    });
+  }
   function request() { if (!ticking) { ticking = true; requestAnimationFrame(update); } }
+  addEventListener("resize", placeFingers);
+  placeFingers();
   addEventListener("scroll", request, { passive: true });
   addEventListener("resize", request);
   update();

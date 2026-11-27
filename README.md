@@ -133,7 +133,7 @@ public/_headers 静的ファイルのセキュリティヘッダー（CSP など
 public/about.*  紹介ページ（HTML・CSS・JS）
 public/theme-init.js 選んだテーマを描画前に適用する（トップと紹介ページで共用）
 public/favicon.* アイコン（apple-touch-icon.png も）
-public/about-img 紹介ページの写真（ぱくたそのフリー素材。S サイズ相当に縮小し、ロゴをぼかしている）
+public/about-img 紹介ページの写真（ぱくたそのフリー素材。S サイズ相当に縮小し、ロゴをぼかしている。finger-*.webp は写真から手だけを切り抜いたもの）
 tests           試験（npm test）
 ```
 

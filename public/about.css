@@ -70,7 +70,7 @@ a:focus-visible, .btn:focus-visible { outline: 3px solid var(--accent); outline-
 .lerp-in { opacity: clamp(0, calc((var(--p, 1) - var(--t, 0)) * 7), 1); }
 
 /* 1. 冒頭 */
-.hero { height: 230vh; --p: 0; }
+.hero { height: 300vh; --p: 0; overflow: clip; }
 .hero .stage { display: grid; place-items: center; padding: 52px 16px 0; }
 .hero-copy {
   position: absolute; inset: 0; display: grid; place-content: center; text-align: center; padding: 0 16px;
@@ -89,7 +89,9 @@ a:focus-visible, .btn:focus-visible { outline: 3px solid var(--accent); outline-
   position: relative; width: min(300px, 72vw); aspect-ratio: 9 / 18.5;
   border-radius: 44px; padding: 12px; background: #1b1d22;
   box-shadow: 0 0 0 1.5px #3a3d45 inset, 0 0 0 1px rgba(255, 255, 255, .14), 0 40px 80px -30px rgba(10, 20, 50, .45);
-  transform: translateY(calc((1 - var(--p)) * 64vh)) scale(calc(.86 + var(--p) * .14));
+  /* 前半で上がりきり、後半は指がチェックを入れる時間にあてる */
+  --rise: clamp(0, calc(var(--p) / .55), 1);
+  transform: translateY(calc((1 - var(--rise)) * 64vh)) scale(calc(.86 + var(--rise) * .14));
 }
 .screen {
   height: 100%; border-radius: 33px; overflow: hidden; background: var(--paper); color: var(--ink);
@@ -106,6 +108,40 @@ a:focus-visible, .btn:focus-visible { outline: 3px solid var(--accent); outline-
 .box.on { background: var(--accent); border-color: var(--accent); }
 .box.on::after { content: ""; position: absolute; left: 5px; top: 1.5px; width: 4px; height: 8px; border: solid #fff; border-width: 0 2px 2px 0; transform: rotate(45deg); }
 .done { color: var(--sub); }
+
+/* ---- 両側から指が伸びてきてチェックを入れる ---- */
+.tap-left { --tap: .7; }
+.tap-right { --tap: .86; }
+/* 指が触れた瞬間（--tap）にチェックが入る */
+.box.tap { --on: clamp(0, calc((var(--p) - var(--tap)) * 60), 1); }
+.box.tap::before { content: ""; position: absolute; inset: -1.6px; border-radius: 5px; background: var(--accent); opacity: var(--on); }
+.box.tap::after {
+  content: ""; position: absolute; left: 5px; top: 1.5px; width: 4px; height: 8px;
+  border: solid #fff; border-width: 0 2px 2px 0; transform: rotate(45deg); opacity: var(--on);
+}
+.tap-text { color: color-mix(in srgb, var(--sub) calc(clamp(0, (var(--p) - var(--tap)) * 60, 1) * 100%), var(--ink)); }
+.finger {
+  /* 位置（--x・--y：チェックボックスの中心）は about.js が測って入れる。指先（--tx・--ty）をそこへ合わせる */
+  position: absolute; left: var(--x, 0); top: var(--y, 0); height: 112px; max-width: none; pointer-events: none;
+  margin: calc(var(--ty) * -1) 0 0 calc(var(--tx) * -1); transform-origin: var(--tx) var(--ty);
+  --in: clamp(0, calc((var(--p) - var(--tap) + .1) / .08), 1);
+  --out: clamp(0, calc((var(--p) - var(--tap) - .03) / .08), 1);
+  /* 指が離れている距離。画面の上の外まで下がる */
+  --away: calc((1 - var(--in) + var(--out)) * (70vh + 200px));
+  /* 触れる直前に少し押し込む */
+  --press: clamp(0, calc(1 - max(var(--p) - var(--tap), var(--tap) - var(--p)) * 40), 1);
+  filter: drop-shadow(0 10px 12px rgba(20, 30, 60, .2)) drop-shadow(0 1px 2px rgba(80, 40, 20, .25));
+}
+/* 写真の手（ぱくたそ）を切り抜いたもの。指は下向きで、左上から少し右下へ向けて伸ばす */
+.finger.left {
+  --tap: .7; --tx: 67px; --ty: 108.5px; width: 93px;
+  transform: translate(calc(var(--away) * -.342), calc(var(--away) * -.94 + var(--press) * 2px)) rotate(-20deg);
+}
+/* 右上から少し左下へ向けて伸ばす */
+.finger.right {
+  --tap: .86; --tx: 26.8px; --ty: 108.5px; width: 106px;
+  transform: translate(calc(var(--away) * .342), calc(var(--away) * -.94 + var(--press) * 2px)) rotate(20deg);
+}
 
 /* 2. 写真が広がる */
 .reveal { height: 240vh; --p: 0; }
@@ -262,6 +298,7 @@ footer a { color: inherit; }
   .hero .stage { padding: 96px 16px 64px; gap: 40px; }
   .hero-copy { position: static; opacity: 1; transform: none; }
   .hint { display: none; }
+  .finger { display: none; }
   .reveal-frame::after { display: none; }
   .share .stage { min-height: 80svh; }
 }
