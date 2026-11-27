@@ -121,10 +121,13 @@ a:focus-visible, .btn:focus-visible { outline: 3px solid var(--accent); outline-
 }
 .tap-text { color: color-mix(in srgb, var(--sub) calc(clamp(0, (var(--p) - var(--tap)) * 60, 1) * 100%), var(--ink)); }
 .finger {
-  /* 位置（--x・--y：チェックボックスの中心）は about.js が測って入れる */
-  position: absolute; left: var(--x, 0); top: var(--y, 0); width: 299px; height: 60px; pointer-events: none;
+  /* 位置（--x・--y：チェックボックスの中心）は about.js が測って入れる。指先（SVG の右端）をそこへ合わせる */
+  position: absolute; left: var(--x, 0); top: var(--y, 0); width: 161px; height: 57px; pointer-events: none;
+  margin: -24px 0 0 -155px; transform-origin: 155px 24px;
   --in: clamp(0, calc((var(--p) - var(--tap) + .1) / .08), 1);
   --out: clamp(0, calc((var(--p) - var(--tap) - .03) / .08), 1);
+  /* 指が離れている距離。画面の上の外まで下がる */
+  --away: calc((1 - var(--in) + var(--out)) * (70vh + 200px));
   /* 触れる直前に少し押し込む */
   --press: clamp(0, calc(1 - max(var(--p) - var(--tap), var(--tap) - var(--p)) * 40), 1);
   filter: drop-shadow(0 10px 14px rgba(20, 30, 60, .28));
@@ -135,15 +138,15 @@ a:focus-visible, .btn:focus-visible { outline: 3px solid var(--accent); outline-
 .finger .nail { fill: #f8dccb; stroke: #e6b898; stroke-width: 1.5; }
 .finger .shine { fill: #fff; opacity: .28; }
 .finger .crease { fill: none; stroke: #cf9a76; stroke-width: 2.2; stroke-linecap: round; }
-/* 左の指は右向き。指先（SVG の右端）がチェックボックスに重なる */
+/* 左上から右下へ伸びる指（指の向きは 40 度下向き） */
 .finger.left {
   --tap: .7;
-  transform: translate(calc(-291px - (1 - var(--in) + var(--out)) * (100vw + 320px) + var(--press) * 3px), -25px);
+  transform: translate(calc(var(--away) * -.766 + var(--press) * 2px), calc(var(--away) * -.643 + var(--press) * 2px)) rotate(40deg);
 }
-/* 右の指は左向き（左右反転）。画面の右側から伸びてくる */
+/* 右上から左下へ伸びる指（左右反転してから 40 度下向き） */
 .finger.right {
   --tap: .86;
-  transform: translate(calc(-8px + (1 - var(--in) + var(--out)) * (100vw + 320px) - var(--press) * 3px), -25px) scaleX(-1);
+  transform: translate(calc(var(--away) * .766 - var(--press) * 2px), calc(var(--away) * -.643 + var(--press) * 2px)) rotate(-40deg) scaleX(-1);
 }
 
 /* 2. 写真が広がる */
