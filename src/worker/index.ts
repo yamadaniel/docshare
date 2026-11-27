@@ -1,4 +1,11 @@
-import { DOC_ID_RE, SECRET_RE, USER_ID_RE, generateDocId, sanitizeName } from "../shared/constants";
+import {
+  DOC_ID_RE,
+  GLOBAL_CREATE_PER_MINUTE,
+  SECRET_RE,
+  USER_ID_RE,
+  generateDocId,
+  sanitizeName,
+} from "../shared/constants";
 import type { Env } from "./env";
 import { allowRequest } from "./ratelimit";
 import { escapeHtml } from "./render";
@@ -6,12 +13,28 @@ import { sha256Hex, verifyUser } from "./users";
 
 export { DocRoom } from "./do/DocRoom";
 
+/** 読み込めるものを自サイト（と紹介ページの Google Fonts）に限り、他サイトへの埋め込みを禁じる。public/_headers と揃える */
+const CSP = [
+  "default-src 'self'",
+  "script-src 'self'",
+  "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com",
+  "font-src 'self' https://fonts.gstatic.com",
+  "img-src 'self' data:",
+  "connect-src 'self'",
+  "object-src 'none'",
+  "base-uri 'none'",
+  "form-action 'self'",
+  "frame-ancestors 'none'",
+].join("; ");
+
 /** Worker が返す応答に付けるヘッダー（public/_headers は Worker の応答には効かない） */
 const SECURITY_HEADERS: Record<string, string> = {
   "Cache-Control": "no-store",
   "Referrer-Policy": "no-referrer",
   "X-Robots-Tag": "noindex",
   "X-Content-Type-Options": "nosniff",
+  "X-Frame-Options": "DENY",
+  "Content-Security-Policy": CSP,
 };
 
 function json(data: unknown, status = 200): Response {
@@ -66,6 +89,25 @@ async function readJson(request: Request): Promise<Record<string, unknown> | nul
     return body && typeof body === "object" ? (body as Record<string, unknown>) : null;
   } catch {
     return null;
+  }
+}
+
+/** 全体の文書作成数を 1 分単位で数え、上限以内なら true */
+async function allowGlobalCreate(env: Env): Promise<boolean> {
+  const limit = Number(env.GLOBAL_CREATE_PER_MINUTE) || GLOBAL_CREATE_PER_MINUTE;
+  const minute = Math.floor(Date.now() / 60_000);
+  try {
+    const [, counted] = await env.DB.batch<{ count: number }>([
+      env.DB.prepare("DELETE FROM create_quota WHERE minute < ?").bind(minute - 1),
+      env.DB.prepare(
+        "INSERT INTO create_quota (minute, count) VALUES (?, 1) ON CONFLICT (minute) DO UPDATE SET count = count + 1 RETURNING count",
+      ).bind(minute),
+    ]);
+    return (counted.results[0]?.count ?? Infinity) <= limit;
+  } catch (err) {
+    // テーブル未作成（マイグレーション前）や D1 の一時的な失敗では、IP 単位の制限だけで作成を続ける
+    console.error("create_quota failed", err);
+    return true;
   }
 }
 
@@ -128,6 +170,7 @@ async function handleApi(request: Request, env: Env, url: URL): Promise<Response
 
   if (path === "/api/docs" && method === "POST") {
     if (!(await allowRequest(env, "docs", request))) return json({ error: "rate_limited" }, 429);
+    if (!(await allowGlobalCreate(env))) return json({ error: "rate_limited" }, 429);
     return createDoc(env);
   }
   if (path === "/api/users" && method === "POST") {
@@ -145,6 +188,7 @@ async function handleApi(request: Request, env: Env, url: URL): Promise<Response
       if (request.headers.get("Upgrade")?.toLowerCase() !== "websocket") {
         return json({ error: "upgrade_required" }, 426);
       }
+      if (!(await allowRequest(env, "ws", request))) return json({ error: "rate_limited" }, 429);
       return stub.fetch(new Request("https://do/ws", request));
     }
     const res = await stub.fetch(`https://do/${rest}${url.search}`);

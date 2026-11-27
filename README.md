@@ -91,6 +91,8 @@ node tests/run.mjs tests/protocol.test.mjs
    npm run migrate:remote
    ```
 
+   `migrations/` にファイルが増えたときも、デプロイ前に同じコマンドで本番に反映する（`create_quota` が無い間は、文書作成の全体上限だけが効かない）。
+
 4. ビルドしてデプロイする。Durable Object（DocRoom、SQLite バックエンド）は初回デプロイ時に `migrations` の `v1` で作られる。
 
    ```bash
@@ -104,8 +106,9 @@ node tests/run.mjs tests/protocol.test.mjs
 | 項目 | 内容 |
 | --- | --- |
 | `assets.run_worker_first` | `/api/*` と `/d/*`（本文を埋め込むため）は常に Worker で処理する。それ以外は静的ファイル、なければ `index.html`（SPA フォールバック） |
-| `ratelimits` | 文書作成・ユーザー登録の IP 単位レート制限（60 秒あたり 10 回）。`namespace_id` はアカウント内で一意な整数文字列。バインディングが使えない環境では Worker 内の簡易カウンターで代替する |
-| `d1_databases` | ユーザー情報（`users` テーブル）。マイグレーションは `migrations/` |
+| `ratelimits` | IP 単位のレート制限。`CREATE_LIMITER` は文書作成・ユーザー登録（60 秒あたり 10 回）、`WS_LIMITER` は WebSocket 接続（60 秒あたり 60 回）。`namespace_id` はアカウント内で一意な整数文字列。バインディングが使えない環境では Worker 内の簡易カウンターで代替する |
+| `d1_databases` | ユーザー情報（`users` テーブル）と文書作成数（`create_quota` テーブル）。マイグレーションは `migrations/` |
+| `GLOBAL_CREATE_PER_MINUTE`（任意の環境変数） | 全体で 1 分あたりに作れる文書の数。未設定なら 60 |
 
 ## 構成
 
@@ -115,8 +118,10 @@ src/shared      schema、WebSocket メッセージ型、定数（フロントと
 src/worker      Worker エントリ、API ルーティング、レート制限、本文のサーバー側描画
 src/worker/do   DocRoom（Durable Object）
 migrations      D1 マイグレーション
-public/_headers 静的ファイルのセキュリティヘッダー（/about だけ X-Robots-Tag を外す）
-public/about.html 紹介ページ
+public/_headers 静的ファイルのセキュリティヘッダー（CSP など。/about だけ X-Robots-Tag を外す）
+public/about.*  紹介ページ（HTML・CSS・JS）
+public/theme-init.js 選んだテーマを描画前に適用する（トップと紹介ページで共用）
+public/favicon.* アイコン（apple-touch-icon.png も）
 public/about-img 紹介ページの写真（ぱくたそのフリー素材。S サイズ相当に縮小し、ロゴをぼかしている）
 tests           試験（npm test）
 ```
@@ -146,6 +151,10 @@ WebSocket のメッセージ型は `src/shared/messages.ts` を参照。
 | 名前 | 1〜20 文字 |
 | WebSocket メッセージ数 | 1 接続あたり毎秒 20 件 |
 | 文書作成・ユーザー登録 | IP ごとに 60 秒あたり 10 回 |
+| 文書作成（全体） | 1 分あたり 60 件（`GLOBAL_CREATE_PER_MINUTE` で変更） |
+| WebSocket 接続 | IP ごとに 60 秒あたり 60 回 |
+| WebSocket 同時接続 | 1 文書あたり 100 本、うち同じ IP から 20 本 |
+| hello までの猶予 | 接続から 10 秒。過ぎると閉じる |
 
 ## 無料枠の目安
 

@@ -3,7 +3,10 @@ import { Node, Slice } from "prosemirror-model";
 import { AttrStep, DocAttrStep, ReplaceStep, Step } from "prosemirror-transform";
 import { schema } from "../../shared/schema";
 import {
+  HELLO_TIMEOUT_MS,
   MAX_DOC_BYTES,
+  MAX_SOCKETS_PER_DOC,
+  MAX_SOCKETS_PER_IP,
   MAX_WS_MESSAGE_BYTES,
   SECRET_RE,
   SNAPSHOT_INTERVAL,
@@ -28,6 +31,9 @@ import { getUserName, resolveNames, verifyUser } from "../users";
 interface Attachment {
   userId: string | null;
   name: string;
+  /** 接続元 IP と接続時刻。この変更より前からの接続には無い */
+  ip?: string;
+  connectedAt?: number;
 }
 
 interface Loaded {
@@ -152,13 +158,17 @@ export class DocRoom extends DurableObject<Env> {
     const path = url.pathname;
 
     if (path === "/ws") {
+      const ip = request.headers.get("CF-Connecting-IP") ?? "unknown";
+      if (!this.admit(ip)) return json({ error: "too_many_connections" }, 429);
       const pair = new WebSocketPair();
       const server = pair[1];
       this.ctx.acceptWebSocket(server);
-      server.serializeAttachment({ userId: null, name: "" } satisfies Attachment);
+      server.serializeAttachment({ userId: null, name: "", ip, connectedAt: Date.now() } satisfies Attachment);
       if (!this.load()) {
         this.send(server, { type: "error", code: "not_found" });
         server.close(4404, "not_found");
+      } else if ((await this.ctx.storage.getAlarm()) === null) {
+        await this.ctx.storage.setAlarm(Date.now() + HELLO_TIMEOUT_MS);
       }
       return new Response(null, { status: 101, webSocket: pair[0] });
     }
@@ -314,7 +324,8 @@ export class DocRoom extends DurableObject<Env> {
     const state = this.load();
     if (!state) return this.error(ws, "not_found");
 
-    ws.serializeAttachment({ userId: msg.userId, name } satisfies Attachment);
+    const prev = ws.deserializeAttachment() as Attachment | null;
+    ws.serializeAttachment({ ...prev, userId: msg.userId, name } satisfies Attachment);
     const users: Record<string, string> = {};
     for (const { att } of this.sessions()) users[att.userId!] = att.name;
     this.send(ws, {
@@ -430,7 +441,7 @@ export class DocRoom extends DurableObject<Env> {
     const name = await getUserName(this.env.DB, userId);
     if (name === null) return;
     for (const { ws, att } of this.sessions()) {
-      if (att.userId === userId) ws.serializeAttachment({ userId, name } satisfies Attachment);
+      if (att.userId === userId) ws.serializeAttachment({ ...att, userId, name } satisfies Attachment);
     }
     this.broadcast({ type: "rename", userId, name });
   }
@@ -505,6 +516,48 @@ export class DocRoom extends DurableObject<Env> {
       clientIds: stepsJson.map(() => clientId),
       steps: stepsJson,
     });
+  }
+
+  // ---- 接続数の制限 ----
+
+  /** hello を送らないまま猶予を過ぎた接続を閉じる。まだ猶予中の接続があれば、その期限に再び確認する */
+  async alarm(): Promise<void> {
+    const next = this.closeStale();
+    if (next !== null) await this.ctx.storage.setAlarm(next);
+  }
+
+  /** 猶予切れの未認証接続を閉じ、残る未認証接続のうち最も早い期限を返す */
+  private closeStale(): number | null {
+    const now = Date.now();
+    let next: number | null = null;
+    for (const ws of this.ctx.getWebSockets()) {
+      const att = ws.deserializeAttachment() as Attachment | null;
+      if (att?.userId || att?.connectedAt === undefined) continue;
+      const deadline = att.connectedAt + HELLO_TIMEOUT_MS;
+      if (deadline <= now) {
+        try {
+          ws.close(4408, "hello_timeout");
+        } catch {
+          // すでに閉じている
+        }
+      } else if (next === null || deadline < next) {
+        next = deadline;
+      }
+    }
+    return next;
+  }
+
+  /** 文書全体と同じ IP からの同時接続数が上限内なら true */
+  private admit(ip: string): boolean {
+    this.closeStale();
+    let total = 0;
+    let sameIp = 0;
+    for (const ws of this.ctx.getWebSockets()) {
+      if (ws.readyState !== WebSocket.OPEN) continue;
+      total++;
+      if ((ws.deserializeAttachment() as Attachment | null)?.ip === ip) sameIp++;
+    }
+    return total < MAX_SOCKETS_PER_DOC && sameIp < MAX_SOCKETS_PER_IP;
   }
 
   // ---- 補助 ----

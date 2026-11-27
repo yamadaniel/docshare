@@ -35,9 +35,11 @@ export async function createDoc(ip) {
 }
 
 /** メッセージを順に受け取れる WebSocket クライアント */
-export function openWs(docId) {
+export function openWs(docId, ip = uniqueIp()) {
   return new Promise((resolve, reject) => {
-    const ws = new WebSocket(`${BASE.replace(/^http/, "ws")}/api/docs/${docId}/ws`);
+    const ws = new WebSocket(`${BASE.replace(/^http/, "ws")}/api/docs/${docId}/ws`, {
+      headers: { "CF-Connecting-IP": ip },
+    });
     const queue = [];
     const waiters = [];
     ws.closeCode = null;
