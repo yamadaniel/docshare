@@ -126,20 +126,20 @@ a:focus-visible, .btn:focus-visible { outline: 3px solid var(--accent); outline-
   margin: calc(var(--ty) * -1) 0 0 calc(var(--tx) * -1); transform-origin: var(--tx) var(--ty);
   --in: clamp(0, calc((var(--p) - var(--tap) + .1) / .08), 1);
   --out: clamp(0, calc((var(--p) - var(--tap) - .03) / .08), 1);
-  /* 指が離れている距離。画面の上の外まで下がる */
-  --away: calc((1 - var(--in) + var(--out)) * (70vh + 200px));
+  /* 指が離れている距離。画面の上の外まで下がる（見本が下にずれている場面の始めでも見えないよう、画面 1 枚半ぶん） */
+  --away: calc((1 - var(--in) + var(--out)) * (150vh + 300px));
   /* 触れる直前に少し押し込む */
   --press: clamp(0, calc(1 - max(var(--p) - var(--tap), var(--tap) - var(--p)) * 40), 1);
   filter: drop-shadow(0 10px 12px rgba(20, 30, 60, .2)) drop-shadow(0 1px 2px rgba(80, 40, 20, .25));
 }
 /* 写真の手（ぱくたそ）を切り抜いたもの。指は下向きで、左上から少し右下へ向けて伸ばす */
 .finger.left {
-  --tap: .7; --tx: 67px; --ty: 108.5px; width: 93px;
+  --tap: .7; --tx: 60.8px; --ty: 109px; width: 87px;
   transform: translate(calc(var(--away) * -.342), calc(var(--away) * -.94 + var(--press) * 2px)) rotate(-20deg);
 }
 /* 右上から少し左下へ向けて伸ばす */
 .finger.right {
-  --tap: .86; --tx: 26.8px; --ty: 108.5px; width: 106px;
+  --tap: .86; --tx: 26.4px; --ty: 109px; width: 87px;
   transform: translate(calc(var(--away) * .342), calc(var(--away) * -.94 + var(--press) * 2px)) rotate(20deg);
 }
 
