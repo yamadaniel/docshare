@@ -122,22 +122,17 @@ a:focus-visible, .btn:focus-visible { outline: 3px solid var(--accent); outline-
 .tap-text { color: color-mix(in srgb, var(--sub) calc(clamp(0, (var(--p) - var(--tap)) * 60, 1) * 100%), var(--ink)); }
 .finger {
   /* 位置（--x・--y：チェックボックスの中心）は about.js が測って入れる。指先（SVG の右端）をそこへ合わせる */
-  position: absolute; left: var(--x, 0); top: var(--y, 0); width: 161px; height: 57px; pointer-events: none;
-  margin: -24px 0 0 -155px; transform-origin: 155px 24px;
+  position: absolute; left: var(--x, 0); top: var(--y, 0); width: 186px; height: 68px; pointer-events: none;
+  margin: -27.6px 0 0 -182px; transform-origin: 182px 27.6px;
   --in: clamp(0, calc((var(--p) - var(--tap) + .1) / .08), 1);
   --out: clamp(0, calc((var(--p) - var(--tap) - .03) / .08), 1);
   /* 指が離れている距離。画面の上の外まで下がる */
   --away: calc((1 - var(--in) + var(--out)) * (70vh + 200px));
   /* 触れる直前に少し押し込む */
   --press: clamp(0, calc(1 - max(var(--p) - var(--tap), var(--tap) - var(--p)) * 40), 1);
-  filter: drop-shadow(0 10px 14px rgba(20, 30, 60, .28));
+  filter: drop-shadow(0 12px 10px rgba(20, 30, 60, .22)) drop-shadow(0 2px 2px rgba(60, 30, 10, .18));
 }
 .finger svg { display: block; width: 100%; height: 100%; }
-.finger .palm, .finger .index { fill: #efc3a1; }
-.finger .curl { fill: #e2ae8a; }
-.finger .nail { fill: #f8dccb; stroke: #e6b898; stroke-width: 1.5; }
-.finger .shine { fill: #fff; opacity: .28; }
-.finger .crease { fill: none; stroke: #cf9a76; stroke-width: 2.2; stroke-linecap: round; }
 /* 左上から右下へ伸びる指（指の向きは 40 度下向き） */
 .finger.left {
   --tap: .7;
