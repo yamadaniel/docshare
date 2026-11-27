@@ -1,9 +1,9 @@
 import type { Env } from "./env";
 
-export type Scope = "docs" | "users" | "ws";
+export type Scope = "docs" | "users" | "ws" | "images";
 
 /** 60 秒あたりの回数。wrangler.jsonc の ratelimits と揃える */
-const LIMITS: Record<Scope, number> = { docs: 10, users: 10, ws: 60 };
+const LIMITS: Record<Scope, number> = { docs: 10, users: 10, ws: 60, images: 10 };
 const PERIOD_MS = 60_000;
 
 // Rate Limiting バインディングが使えない場合の簡易カウンター（isolate 単位）

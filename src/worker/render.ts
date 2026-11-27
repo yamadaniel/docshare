@@ -46,6 +46,8 @@ export function renderDocHtml(doc: Node): string {
   doc.forEach((block) => {
     if (block.type.name === "paragraph") {
       out += `<p>${inline(block)}</p>`;
+    } else if (block.type.name === "image") {
+      out += `<p><img src="/api/images/${escapeHtml(String(block.attrs.src))}" alt="写真"></p>`;
     } else if (block.type.name === "task_list") {
       out += "<ul>";
       block.forEach((item) => {

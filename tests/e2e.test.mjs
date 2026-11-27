@@ -151,6 +151,40 @@ test("IME の変換中の文字は送らず、確定してから同期する", a
   await close(a, b);
 });
 
+test("写真を選ぶと縮めて送られ、相手の画面にも表示される", async () => {
+  const { a, b } = await pair();
+  await a.click(".editor");
+  await a.keyboard.type("旅の写真");
+  // 縦長の大きな写真（3000×2000 の PNG）をブラウザ内で作る
+  const png = await a.evaluate(async () => {
+    const c = document.createElement("canvas");
+    c.width = 2000;
+    c.height = 3000;
+    const g = c.getContext("2d");
+    g.fillStyle = "#3a7";
+    g.fillRect(0, 0, 2000, 3000);
+    const blob = await new Promise((r) => c.toBlob(r, "image/png"));
+    return [...new Uint8Array(await blob.arrayBuffer())];
+  });
+  const [chooser] = await Promise.all([a.waitForEvent("filechooser"), a.click(".tb-image")]);
+  await chooser.setFiles({ name: "photo.png", mimeType: "image/png", buffer: Buffer.from(png) });
+  for (const p of [a, b]) {
+    await p.waitForFunction(() => {
+      const img = document.querySelector(".editor img.doc-image");
+      return img && img.complete && img.naturalWidth > 0;
+    });
+  }
+  const size = await b.$eval(".editor img.doc-image", (img) => [img.naturalWidth, img.naturalHeight]);
+  assert.deepEqual(size, [1067, 1600], "長辺 1600px に縮める");
+  const type = await b.evaluate(async () => (await fetch(document.querySelector(".doc-image").src)).headers.get("content-type"));
+  assert.equal(type, "image/webp");
+  // 置いた直後に続けて打っても、写真は文字に置き換わらない
+  await a.keyboard.type("海");
+  await b.waitForFunction(() => document.querySelector(".editor")?.textContent === "旅の写真海");
+  assert.equal(await b.$$eval(".editor img.doc-image", (es) => es.length), 1);
+  await close(a, b);
+});
+
 test("行のチェックボックス化と解除が同期する", async () => {
   const { a, b } = await pair();
   await a.click(".editor");

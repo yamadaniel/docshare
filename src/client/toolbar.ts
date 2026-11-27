@@ -16,6 +16,8 @@ export interface Toolbar {
 interface Handlers {
   onHistory(): void;
   onShare(): void;
+  /** 写真を選んで本文に置く */
+  onImage(): void;
   /** 文書を「完了」にする */
   onClose(): void;
   /** リンクの入力（新規・編集） */
@@ -96,6 +98,7 @@ export function createToolbar(getView: () => EditorView | null, handlers: Handle
     commandButton("U", "下線", "tb-underline", toggleMark(underline), (v) => markActive(v.state, underline)),
     commandButton("☑", "チェックボックス", "tb-check", toggleTask, (v) => inTask(v.state)),
     linkButton(),
+    button("🖼", "写真", "tb-image", handlers.onImage),
   ];
   const closeBtn = button("完了", "完了にする（読み取り専用にする）", "tb-text tb-close", handlers.onClose);
   const el = h(

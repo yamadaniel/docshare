@@ -1,6 +1,8 @@
 import {
   DOC_ID_RE,
   GLOBAL_CREATE_PER_MINUTE,
+  IMAGE_SRC_RE,
+  MAX_IMAGE_BYTES,
   SECRET_RE,
   USER_ID_RE,
   generateDocId,
@@ -164,6 +166,51 @@ async function renameUser(request: Request, env: Env): Promise<Response> {
   return json({ userId, name });
 }
 
+/** 先頭のバイト列から写真の形式を判定する。WebP・JPEG・PNG 以外は null */
+function imageType(bytes: Uint8Array): string | null {
+  const ascii = (from: number, to: number) => String.fromCharCode(...bytes.subarray(from, to));
+  if (bytes.length > 12 && ascii(0, 4) === "RIFF" && ascii(8, 12) === "WEBP") return "image/webp";
+  if (bytes.length > 3 && bytes[0] === 0xff && bytes[1] === 0xd8 && bytes[2] === 0xff) return "image/jpeg";
+  if (bytes.length > 8 && bytes[0] === 0x89 && ascii(1, 4) === "PNG") return "image/png";
+  return null;
+}
+
+/** 写真を受け取って保存し、本文に書く参照（「文書 ID/写真 ID」）を返す */
+async function uploadImage(request: Request, env: Env, docId: string): Promise<Response> {
+  if (!env.IMAGES) return json({ error: "unavailable" }, 503);
+  const userId = request.headers.get("X-User-Id") ?? "";
+  const secret = request.headers.get("X-User-Secret") ?? "";
+  if (!USER_ID_RE.test(userId) || !SECRET_RE.test(secret) || (await verifyUser(env.DB, userId, secret)) === null) {
+    return json({ error: "unauthorized" }, 401);
+  }
+  if (Number(request.headers.get("Content-Length") ?? 0) > MAX_IMAGE_BYTES) return json({ error: "too_large" }, 413);
+  if (!(await allowRequest(env, "images", request))) return json({ error: "rate_limited" }, 429);
+  const bytes = new Uint8Array(await request.arrayBuffer());
+  if (bytes.length > MAX_IMAGE_BYTES) return json({ error: "too_large" }, 413);
+  const type = imageType(bytes);
+  if (!type) return json({ error: "invalid" }, 400);
+
+  const stub = env.DOC_ROOM.get(env.DOC_ROOM.idFromName(docId));
+  const reserved = await stub.fetch(`https://do/images/reserve?docId=${docId}`, { method: "POST" });
+  if (!reserved.ok) return json(await reserved.json(), reserved.status);
+
+  const src = `${docId}/${generateDocId()}`;
+  await env.IMAGES.put(src, bytes, { httpMetadata: { contentType: type }, customMetadata: { userId } });
+  return json({ src }, 201);
+}
+
+/** 保存した写真を返す。写真は書き換えないので長くキャッシュさせる */
+async function serveImage(env: Env, src: string): Promise<Response> {
+  if (!env.IMAGES) return json({ error: "unavailable" }, 503);
+  const object = await env.IMAGES.get(src);
+  if (!object) return json({ error: "not_found" }, 404);
+  const headers = new Headers(SECURITY_HEADERS);
+  object.writeHttpMetadata(headers);
+  headers.set("Cache-Control", "private, max-age=31536000, immutable");
+  headers.set("ETag", object.httpEtag);
+  return new Response(object.body, { headers });
+}
+
 async function handleApi(request: Request, env: Env, url: URL): Promise<Response> {
   const path = url.pathname;
   const method = request.method;
@@ -178,6 +225,17 @@ async function handleApi(request: Request, env: Env, url: URL): Promise<Response
     return registerUser(request, env);
   }
   if (path === "/api/users/me" && method === "PATCH") return renameUser(request, env);
+
+  const upload = /^\/api\/docs\/([^/]+)\/images$/.exec(path);
+  if (upload && method === "POST") {
+    if (!DOC_ID_RE.test(upload[1])) return json({ error: "not_found" }, 404);
+    return uploadImage(request, env, upload[1]);
+  }
+  const image = /^\/api\/images\/(.+)$/.exec(path);
+  if (image && method === "GET") {
+    if (!IMAGE_SRC_RE.test(image[1])) return json({ error: "not_found" }, 404);
+    return serveImage(env, image[1]);
+  }
 
   const cont = /^\/api\/docs\/([^/]+)\/continue$/.exec(path);
   if (cont && method === "POST") {

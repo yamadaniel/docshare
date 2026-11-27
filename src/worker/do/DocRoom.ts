@@ -6,6 +6,7 @@ import {
   ARCHIVE_AFTER_MS,
   HELLO_TIMEOUT_MS,
   MAX_DOC_BYTES,
+  MAX_IMAGES_PER_DOC,
   MAX_SOCKETS_PER_DOC,
   MAX_SOCKETS_PER_IP,
   isSafeHref,
@@ -85,6 +86,8 @@ export class DocRoom extends DurableObject<Env> {
   private loaded: Loaded | null | undefined;
   private readonly sql: SqlStorage;
   private readonly rate = new WeakMap<WebSocket, { at: number; count: number }>();
+  /** アーカイブ時の整理の途中。重ねて走らせない */
+  private compacting: Promise<void> | null = null;
   /** 続きの文書を作っている途中。同時に押されても 1 つだけ作る */
   private continuing: Promise<string | null> | null = null;
 
@@ -116,7 +119,8 @@ export class DocRoom extends DurableObject<Env> {
       doc,
       version,
       title: meta.get("title") ?? "",
-      lastEditAt: last ?? Number(meta.get("created_at") ?? Date.now()),
+      // 整理（アーカイブ時に履歴を消す）のあとは meta の last_edit_at が最後の更新時刻
+      lastEditAt: last ?? Number(meta.get("last_edit_at") ?? meta.get("created_at") ?? Date.now()),
       closedBy: meta.get("closed_by") ?? null,
       closedAt: meta.has("closed_at") ? Number(meta.get("closed_at")) : null,
       successor: meta.get("successor") ?? null,
@@ -199,8 +203,8 @@ export class DocRoom extends DurableObject<Env> {
       if (!this.load()) {
         this.send(server, { type: "error", code: "not_found" });
         server.close(4404, "not_found");
-      } else if ((await this.ctx.storage.getAlarm()) === null) {
-        await this.ctx.storage.setAlarm(Date.now() + HELLO_TIMEOUT_MS);
+      } else {
+        await this.scheduleAlarm(Date.now() + HELLO_TIMEOUT_MS);
       }
       return new Response(null, { status: 101, webSocket: pair[0] });
     }
@@ -222,15 +226,35 @@ export class DocRoom extends DurableObject<Env> {
       } else {
         this.create();
       }
+      await this.scheduleAlarm(null);
       return json({ ok: true });
     }
 
     const state = this.load();
     if (!state) return json({ error: "not_found" }, 404);
+    await this.settle(state);
 
     // サーバー側で描画した本文（/d/{docId} の HTML に埋め込む）
     if (path === "/render" && request.method === "GET") {
       return json({ title: state.title, html: renderDocHtml(state.doc), description: describeDoc(state.doc) });
+    }
+
+    // 写真を 1 枚置く枠を確保する。読み取り専用の文書や上限に達した文書には置かせない
+    if (path === "/images/reserve" && request.method === "POST") {
+      if (this.archive(state)) return json({ error: "archived" }, 409);
+      const count = Number(
+        this.sql.exec<{ value: string }>("SELECT value FROM meta WHERE key = 'image_count'").toArray()[0]?.value ?? 0,
+      );
+      if (count >= MAX_IMAGES_PER_DOC) return json({ error: "too_many_images" }, 409);
+      // 写真の保存先のキーは「文書 ID/写真 ID」。整理のときに自分の写真を探せるよう文書 ID を覚えておく。
+      // images_pending：アーカイブ時に、使っていない写真を探して消す必要がある
+      const docId = url.searchParams.get("docId") ?? "";
+      this.sql.exec(
+        "INSERT OR REPLACE INTO meta (key, value) VALUES ('image_count', ?), ('doc_id', ?), ('images_pending', '1')",
+        String(count + 1),
+        docId,
+      );
+      return json({ ok: true });
     }
 
     if (path === "/continue" && request.method === "POST") {
@@ -334,6 +358,7 @@ export class DocRoom extends DurableObject<Env> {
     if (!att?.userId) return this.error(ws, "unauthorized");
     const state = this.load();
     if (!state) return this.error(ws, "not_found");
+    await this.settle(state);
 
     switch (msg.type) {
       case "steps":
@@ -382,6 +407,7 @@ export class DocRoom extends DurableObject<Env> {
     }
     const state = this.load();
     if (!state) return this.error(ws, "not_found");
+    await this.settle(state);
 
     const prev = ws.deserializeAttachment() as Attachment | null;
     ws.serializeAttachment({ ...prev, userId: msg.userId, name } satisfies Attachment);
@@ -611,6 +637,61 @@ export class DocRoom extends DurableObject<Env> {
     this.broadcast({ type: "archive", archive: await this.archiveInfo(state) });
   }
 
+  /**
+   * アーカイブされた文書を整理する。最新版を確定版として 1 つのスナップショットに残し、
+   * 編集の差分（履歴）と、最新版で使っていない写真を消す
+   */
+  private async settle(state: Loaded): Promise<void> {
+    if (!this.archive(state)) return;
+    const pending =
+      this.sql.exec<{ n: number }>("SELECT COUNT(*) AS n FROM revisions").one().n > 0 ||
+      this.sql.exec("SELECT 1 FROM meta WHERE key = 'images_pending'").toArray().length > 0;
+    if (!pending) return;
+    this.compacting ??= this.compact(state).finally(() => (this.compacting = null));
+    await this.compacting;
+  }
+
+  private async compact(state: Loaded): Promise<void> {
+    const now = Date.now();
+    this.ctx.storage.transactionSync(() => {
+      this.sql.exec("DELETE FROM revisions");
+      this.sql.exec("DELETE FROM snapshots");
+      this.sql.exec(
+        "INSERT INTO snapshots (version, doc_json, created_at) VALUES (?, ?, ?)",
+        state.version,
+        JSON.stringify(state.doc.toJSON()),
+        now,
+      );
+      this.sql.exec(
+        "INSERT OR REPLACE INTO meta (key, value) VALUES ('last_edit_at', ?), ('images_pending', '1')",
+        String(state.lastEditAt),
+      );
+    });
+    await this.removeUnusedImages(state);
+    this.sql.exec("DELETE FROM meta WHERE key = 'images_pending'");
+  }
+
+  /** 保存先にある自分の写真のうち、最新版の本文から参照されていないものを消す */
+  private async removeUnusedImages(state: Loaded): Promise<void> {
+    const bucket = this.env.IMAGES;
+    const docId = this.sql.exec<{ value: string }>("SELECT value FROM meta WHERE key = 'doc_id'").toArray()[0]?.value;
+    if (!bucket || !docId) return;
+    const used = new Set<string>();
+    state.doc.descendants((node) => {
+      if (node.type.name === "image") used.add(String(node.attrs.src));
+    });
+    let kept = 0;
+    let cursor: string | undefined;
+    do {
+      const page = await bucket.list({ prefix: `${docId}/`, cursor });
+      const unused = page.objects.map((o) => o.key).filter((key) => !used.has(key));
+      kept += page.objects.length - unused.length;
+      if (unused.length) await bucket.delete(unused);
+      cursor = page.truncated ? page.cursor : undefined;
+    } while (cursor);
+    this.sql.exec("INSERT OR REPLACE INTO meta (key, value) VALUES ('image_count', ?)", String(kept));
+  }
+
   /** 状態だけが変わる（本文は変わらない）リビジョンを記録する */
   private recordMarker(kind: "close" | "reopen", userId: string, state: Loaded, now: number): void {
     this.sql.exec(
@@ -640,6 +721,7 @@ export class DocRoom extends DurableObject<Env> {
     state.closedBy = userId;
     state.closedAt = now;
     await this.broadcastArchive(state);
+    await this.settle(state);
   }
 
   private async onReopen(ws: WebSocket, userId: string, state: Loaded): Promise<void> {
@@ -654,6 +736,7 @@ export class DocRoom extends DurableObject<Env> {
     state.closedAt = null;
     state.lastEditAt = now;
     await this.broadcastArchive(state);
+    await this.scheduleAlarm(null);
   }
 
   /** 本文を引き継いだ続きの文書を作り、その docId を記録する。冒頭に元の文書へのリンクを置く */
@@ -685,8 +768,25 @@ export class DocRoom extends DurableObject<Env> {
 
   /** hello を送らないまま猶予を過ぎた接続を閉じる。まだ猶予中の接続があれば、その期限に再び確認する */
   async alarm(): Promise<void> {
-    const next = this.closeStale();
-    if (next !== null) await this.ctx.storage.setAlarm(next);
+    const helloNext = this.closeStale();
+    const state = this.load();
+    if (state) await this.settle(state);
+    await this.scheduleAlarm(helloNext);
+  }
+
+  /**
+   * 次に起きる時刻を決める。hello の猶予切れと、自動アーカイブの期限のうち早いほう。
+   * 期限は編集のたびには延ばさず、起きたときに最後の更新から数え直す
+   */
+  private async scheduleAlarm(helloNext: number | null): Promise<void> {
+    const state = this.load();
+    const candidates = [helloNext];
+    if (state && !this.archive(state)) candidates.push(state.lastEditAt + this.archiveAfter());
+    const times = candidates.filter((t): t is number => t !== null);
+    if (!times.length) return;
+    const next = Math.min(...times);
+    const current = await this.ctx.storage.getAlarm();
+    if (current === null || current > next || current <= Date.now()) await this.ctx.storage.setAlarm(next);
   }
 
   /** 猶予切れの未認証接続を閉じ、残る未認証接続のうち最も早い期限を返す */

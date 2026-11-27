@@ -133,6 +133,8 @@ button { cursor: pointer; -webkit-tap-highlight-color: transparent; touch-action
   word-break: break-word;
 }
 .editor p, .preview p { margin: 0 0 0.5em; }
+.doc-image, .ssr img { display: block; max-width: 100%; height: auto; margin: 8px 0 12px; border-radius: 8px; background: var(--surface); }
+.editor .doc-image.ProseMirror-selectednode { outline: 3px solid var(--accent); outline-offset: 2px; }
 .task-list { list-style: none; margin: 0 0 0.5em; padding: 0; }
 .task-item { display: flex; align-items: flex-start; min-height: 44px; }
 .task-box {
@@ -202,9 +204,9 @@ button { cursor: pointer; -webkit-tap-highlight-color: transparent; touch-action
 .tb-spacer { flex: 1; }
 /* 狭い画面（360px 幅まで）でもボタンが 1 行に収まるよう詰める */
 @media (max-width: 420px) {
-  .toolbar { gap: 2px; padding-left: 6px; padding-right: 6px; }
-  .tb-btn { min-width: 40px; }
-  .tb-text { padding: 0 6px; }
+  .toolbar { gap: 0; padding-left: 4px; padding-right: 4px; }
+  .tb-btn { min-width: 38px; padding: 0 6px; }
+  .tb-text { padding: 0 5px; font-size: 14px; }
 }
 
 /* ---- modal ---- */

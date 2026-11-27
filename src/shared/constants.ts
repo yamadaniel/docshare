@@ -9,6 +9,12 @@ export const HREF_MAX = 2048;
 export const MAX_WS_MESSAGE_BYTES = 64 * 1024;
 export const MAX_DOC_BYTES = 1024 * 1024;
 export const SNAPSHOT_INTERVAL = 200;
+/** 写真：1 文書あたりの枚数、1 枚の大きさ、ブラウザで縮める長辺 */
+export const MAX_IMAGES_PER_DOC = 20;
+export const MAX_IMAGE_BYTES = 2 * 1024 * 1024;
+export const IMAGE_MAX_EDGE = 1600;
+/** 写真の参照（「文書 ID/写真 ID」）。保存先のキーと /api/images/ 以下のパスに使う */
+export const IMAGE_SRC_RE = /^[0-9A-Za-z]{22}\/[0-9A-Za-z]{22}$/;
 export const WS_MESSAGES_PER_SECOND = 20;
 /** 1 文書に同時につなげる WebSocket の数 */
 export const MAX_SOCKETS_PER_DOC = 100;

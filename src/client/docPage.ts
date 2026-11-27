@@ -1,10 +1,13 @@
 import type { EditorView } from "prosemirror-view";
+import { NodeSelection, TextSelection } from "prosemirror-state";
 import { HREF_MAX, TITLE_MAX, normalizeHref, sanitizeTitle } from "../shared/constants";
 import { linkAt, setLink } from "./commands";
 import { createView } from "./editor";
 import { createToolbar } from "./toolbar";
 import { h, toast } from "./dom";
 import { createHistorySheet } from "./history";
+import { pickImage, uploadImage } from "./images";
+import { schema } from "../shared/schema";
 import { confirmModal, nameModal, promptModal } from "./modal";
 import type { ArchiveInfo } from "../shared/messages";
 import { removeRecent, touchRecent } from "./recent";
@@ -230,10 +233,33 @@ export function renderDocPage(app: HTMLElement, docId: string, ctx: PageContext)
   const toolbar = createToolbar(() => view, {
     onHistory: () => historySheet.open(),
     onLink: () => void editLink(),
+    async onImage() {
+      if (!view || archive) return;
+      const file = await pickImage();
+      if (!file) return;
+      toast("写真を送っている…");
+      try {
+        const { src, width, height } = await uploadImage(docId, ctx.getUser(), file);
+        const v = view;
+        if (!v || archive) return;
+        const tr = v.state.tr.replaceSelectionWith(schema.nodes.image.create({ src, width, height }));
+        // 置いた直後は写真そのものが選ばれ、続けて打つと写真が文字に置き換わる。カーソルを次の段落へ移す
+        if (tr.selection instanceof NodeSelection) {
+          const after = tr.selection.to;
+          if (!tr.doc.resolve(after).nodeAfter?.isTextblock) tr.insert(after, schema.nodes.paragraph.create());
+          tr.setSelection(TextSelection.create(tr.doc, after + 1));
+        }
+        v.dispatch(tr.scrollIntoView());
+        toast("写真を置いた");
+      } catch (err) {
+        toast(err instanceof Error ? err.message : "写真を送れなかった");
+      }
+    },
     async onClose() {
       const ok = await confirmModal({
         title: "完了にする",
-        description: "完了にすると、誰も編集できなくなる（読み取り専用）。取り消せるのは自分だけ。続きは新しい文書で書ける。",
+        description:
+          "完了にすると、誰も編集できなくなる（読み取り専用）。今の版を確定版として残し、編集の履歴と使っていない写真は消す（取り消しても戻らない）。続きは新しい文書で書ける。",
         okLabel: "完了にする",
       });
       if (ok && !conn.sendClose()) toast("オフラインのため完了にできない");

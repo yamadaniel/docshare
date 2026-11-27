@@ -120,7 +120,8 @@ export function createHistorySheet(opts: Options): HistorySheet {
     heading.replaceChildren("履歴");
     const groups = groupRevisions(revisions);
     if (!groups.length) {
-      body.replaceChildren(note("まだ編集がない。"));
+      // 読み取り専用の文書は、アーカイブ時に履歴を消して確定版だけを残している
+      body.replaceChildren(note(opts.canRestore() ? "まだ編集がない。" : "アーカイブ時に履歴を整理した。残っているのは確定版だけ。"));
       return;
     }
     const list = h(
