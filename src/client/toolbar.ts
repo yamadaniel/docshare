@@ -98,14 +98,16 @@ export function createToolbar(getView: () => EditorView | null, handlers: Handle
     commandButton("U", "下線", "tb-underline", toggleMark(underline), (v) => markActive(v.state, underline)),
     commandButton("☑", "チェックボックス", "tb-check", toggleTask, (v) => inTask(v.state)),
     linkButton(),
-    button("🖼", "写真", "tb-image", handlers.onImage),
   ];
+  // 絵文字のアイコンは端末ごとに見た目が変わって伝わりにくいので、文字で示す
+  const imageBtn = button("写真", "写真を貼る", "tb-text tb-image", handlers.onImage);
   const closeBtn = button("完了", "完了にする（読み取り専用にする）", "tb-text tb-close", handlers.onClose);
   const el = h(
     "div",
     { class: "toolbar", role: "toolbar", "aria-label": "書式" },
     ...formatButtons,
     h("span", { class: "tb-spacer" }),
+    imageBtn,
     closeBtn,
     button("履歴", "履歴", "tb-text", handlers.onHistory),
     button("共有", "共有", "tb-text", handlers.onShare),
@@ -131,7 +133,7 @@ export function createToolbar(getView: () => EditorView | null, handlers: Handle
       for (const u of updaters) u(view);
     },
     setReadOnly(readOnly) {
-      for (const btn of formatButtons) btn.disabled = readOnly;
+      for (const btn of [...formatButtons, imageBtn]) btn.disabled = readOnly;
       closeBtn.hidden = readOnly;
       if (readOnly) linkBar.hidden = true;
     },
