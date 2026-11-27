@@ -37,6 +37,23 @@ after(() => {
   }
 });
 
+test("期限が来ると、誰も開かなくても履歴と使っていない写真が整理される", async () => {
+  const user = await registerUser("整理");
+  const docId = await createDoc();
+  const res = await api(`/api/docs/${docId}/images`, {
+    method: "POST",
+    headers: { "Content-Type": "image/webp", "X-User-Id": user.userId, "X-User-Secret": user.secret },
+    body: Uint8Array.from([...new TextEncoder().encode("RIFF0000WEBP"), 0, 0, 0, 0]),
+  });
+  const { src } = await res.json();
+  assert.equal((await api(`/api/images/${src}`)).status, 200);
+  // 写真の配信は文書に触れないので、消えていればアラームで整理されたことになる
+  await sleep(ARCHIVE_AFTER_MS + 3000);
+  assert.equal((await api(`/api/images/${src}`)).status, 404);
+  const { revisions } = await (await api(`/api/docs/${docId}/revisions`)).json();
+  assert.deepEqual(revisions, []);
+});
+
 test("最後の更新から期間がたつと読み取り専用になり、続きの文書は作れる", async () => {
   const user = await registerUser("期限");
   const docId = await createDoc();

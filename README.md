@@ -2,7 +2,8 @@
 
 リンクを知っていれば誰でも編集できる、軽量な共同編集メモ。ログイン不要。Cloudflare Workers + Durable Objects + D1 の無料枠で動く。
 
-- エディタ：ProseMirror を直接使用（太字・斜体・下線・チェックボックス・リンク）
+- エディタ：ProseMirror を直接使用（太字・斜体・下線・チェックボックス・リンク・写真）
+- 写真：ツールバーの 🖼 で選ぶ。ブラウザで長辺 1600px の WebP（使えなければ JPEG）に縮めてから送る（撮影場所などの付加情報は残らない）。R2 に「文書 ID/写真 ID」で保存し、本文には参照だけを書く。名前登録が必要。1 文書 20 枚・1 枚 2MB まで
 - リンク：URL を入力して空白を打つか、URL を貼り付けるとリンクになる。文字を選んでツールバーの 🔗 からも付けられる。リンク上にカーソルを置くと「開く・編集・解除」が出る。PC では Ctrl / Cmd + K で入力、Ctrl / Cmd + クリックで開く。使えるのは http・https・mailto だけ
 - 表示：ヘッダーの ☀ / ● でライト・ダークを切り替える（端末に保存）。選ぶまでは OS の設定に従う
 - AI からの読み取り：`/d/{docId}` の HTML には本文がサーバー側で埋め込まれる。JavaScript を実行しない読み手（Claude・ChatGPT・Gemini などの URL 読み取り）にも中身が見える
@@ -10,7 +11,7 @@
 - 同期：prosemirror-collab。文書ごとに 1 つの Durable Object（DocRoom）が編集を確定・保存する
 - IME：変換中の未確定の文字は送らず、確定してから送る。変換中に届いた相手の編集も、確定後に反映する（変換が途切れないように）
 - 履歴：編集はすべてリビジョンとして編集者付きで保存。任意の版に戻せる
-- 完了・アーカイブ：ツールバーの「完了」で文書を読み取り専用にできる（誰でも押せる。取り消せるのは押した本人だけ）。最後の更新から 30 日たった文書も自動で読み取り専用になる。読み取り専用の文書からは「続きを新しい文書で」で、本文と文書名を引き継いだ新しい文書を作れる（冒頭に元の文書へのリンクが入る。続きは 1 文書につき 1 つ）
+- 完了・アーカイブ：ツールバーの「完了」で文書を読み取り専用にできる（誰でも押せる。取り消せるのは押した本人だけ）。最後の更新から 30 日たった文書も自動で読み取り専用になる。読み取り専用になった時点の最新版を確定版として残し、編集の履歴（差分）と、最新版で使っていない写真は消す（完了を取り消しても戻らない）。読み取り専用の文書からは「続きを新しい文書で」で、本文と文書名を引き継いだ新しい文書を作れる（冒頭に元の文書へのリンクが入る。続きは 1 文書につき 1 つ）
 - ユーザー名：D1 に保存。名前を変えると過去の履歴の表示名も変わる
 
 ## 必要なもの
@@ -95,7 +96,13 @@ node tests/run.mjs tests/protocol.test.mjs
 
    `migrations/` にファイルが増えたときも、デプロイ前に同じコマンドで本番に反映する（`create_quota` が無い間は、文書作成の全体上限だけが効かない）。
 
-4. ビルドしてデプロイする。Durable Object（DocRoom、SQLite バックエンド）は初回デプロイ時に `migrations` の `v1` で作られる。
+4. 写真の保存先（R2 バケット）を作る。管理画面の「R2」からでもよい。
+
+   ```bash
+   npx wrangler r2 bucket create docshare-images
+   ```
+
+5. ビルドしてデプロイする。Durable Object（DocRoom、SQLite バックエンド）は初回デプロイ時に `migrations` の `v1` で作られる。
 
    ```bash
    npm run deploy
@@ -109,6 +116,7 @@ node tests/run.mjs tests/protocol.test.mjs
 | --- | --- |
 | `assets.run_worker_first` | `/api/*` と `/d/*`（本文を埋め込むため）は常に Worker で処理する。それ以外は静的ファイル、なければ `index.html`（SPA フォールバック） |
 | `ratelimits` | IP 単位のレート制限。`CREATE_LIMITER` は文書作成・ユーザー登録（60 秒あたり 10 回）、`WS_LIMITER` は WebSocket 接続（60 秒あたり 60 回）。`namespace_id` はアカウント内で一意な整数文字列。バインディングが使えない環境では Worker 内の簡易カウンターで代替する |
+| `r2_buckets` | 写真の保存先（`IMAGES` → バケット `docshare-images`）。デプロイ前にバケットを作っておく |
 | `d1_databases` | ユーザー情報（`users` テーブル）と文書作成数（`create_quota` テーブル）。マイグレーションは `migrations/` |
 | `GLOBAL_CREATE_PER_MINUTE`（任意の環境変数） | 全体で 1 分あたりに作れる文書の数。未設定なら 60 |
 | `ARCHIVE_AFTER_MS`（任意の環境変数） | 最後の更新から読み取り専用になるまでの時間（ミリ秒）。未設定なら 30 日 |
@@ -139,6 +147,8 @@ tests           試験（npm test）
 | POST | /api/users | 初回登録 `{ userId, secret, name }` |
 | PATCH | /api/users/me | 名前変更 `{ name }`（`X-User-Id` / `X-User-Secret` ヘッダーで認証） |
 | POST | /api/docs/{docId}/continue | 読み取り専用の文書から続きの文書を作る → `{ docId }`（作成済みならその docId。文書作成と同じレート制限） |
+| POST | /api/docs/{docId}/images | 写真を保存 → `{ src }`（本文はそのまま。WebP・JPEG・PNG のみ。`X-User-Id` / `X-User-Secret` で認証。IP ごとに 60 秒あたり 10 回） |
+| GET | /api/images/{docId}/{imageId} | 写真を返す |
 | GET | /api/docs/{docId}/ws | WebSocket（DocRoom へ転送） |
 | GET | /about | 紹介ページ（静的 HTML） |
 | GET | /d/{docId} | 文書画面。本文を埋め込んだ HTML を返す（存在しない文書は 404） |
@@ -159,6 +169,7 @@ WebSocket のメッセージ型は `src/shared/messages.ts` を参照。
 | WebSocket 接続 | IP ごとに 60 秒あたり 60 回 |
 | WebSocket 同時接続 | 1 文書あたり 100 本、うち同じ IP から 20 本 |
 | hello までの猶予 | 接続から 10 秒。過ぎると閉じる |
+| 写真 | 1 文書 20 枚、1 枚 2MB |
 | 自動アーカイブ | 最後の更新（本文・文書名・完了の取り消し）から 30 日 |
 
 ## 無料枠の目安

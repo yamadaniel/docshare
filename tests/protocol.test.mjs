@@ -304,10 +304,11 @@ test("完了にすると誰も編集できず、取り消せるのは完了に�
   assert.equal((await s.ws.until("archive")).archive, null);
   assert.equal((await s.send([insertText(1, "x")])).type, "steps", "取り消し後は編集できる");
 
+  // 完了した時点で履歴は整理され、確定版だけが残る。取り消し後の記録はそこから始まる
   const { revisions } = await (await api(`/api/docs/${s.docId}/revisions?limit=5`)).json();
   assert.deepEqual(
-    revisions.slice(0, 3).map((r) => r.kind),
-    ["steps", "reopen", "close"],
+    revisions.map((r) => r.kind),
+    ["steps", "reopen"],
   );
 });
 
@@ -338,6 +339,77 @@ test("完了した文書から、本文を引き継いだ続きの文書を作�
 
   s.ws.sendJson({ type: "reopen" });
   assert.equal((await s.ws.until("error")).code, "archived", "続きがある文書は取り消せない");
+});
+
+/** 写真として受け付けられる最小のバイト列（形式は先頭で判定する） */
+const fakeWebp = (n = 64) => {
+  const b = new Uint8Array(n);
+  b.set(new TextEncoder().encode("RIFF"), 0);
+  b.set(new TextEncoder().encode("WEBP"), 8);
+  return b;
+};
+const imageNode = (src) => ({ type: "image", attrs: { src, width: 10, height: 10 } });
+const insertImage = (pos, src) => ({ stepType: "replace", from: pos, to: pos, slice: { content: [imageNode(src)] } });
+
+async function upload(s, body = fakeWebp(), { ip = uniqueIp(), auth = true } = {}) {
+  const headers = { "Content-Type": "image/webp" };
+  if (auth) Object.assign(headers, { "X-User-Id": s.user.userId, "X-User-Secret": s.user.secret });
+  return api(`/api/docs/${s.docId}/images`, { method: "POST", body, headers, ip });
+}
+
+test("写真の送信・配信と検証", async () => {
+  const s = await session();
+  const res = await upload(s);
+  assert.equal(res.status, 201);
+  const { src } = await res.json();
+  assert.match(src, new RegExp(`^${s.docId}/[0-9A-Za-z]{22}$`));
+  const got = await api(`/api/images/${src}`);
+  assert.equal(got.status, 200);
+  assert.equal(got.headers.get("content-type"), "image/webp");
+  assert.match(got.headers.get("cache-control"), /immutable/);
+  assert.equal((await got.arrayBuffer()).byteLength, 64);
+
+  assert.equal((await upload(s, fakeWebp(), { auth: false })).status, 401, "名前登録が必要");
+  assert.equal((await upload(s, new TextEncoder().encode("<svg onload=alert(1)>"))).status, 400, "写真以外は拒否");
+  assert.equal((await upload(s, fakeWebp(2 * 1024 * 1024 + 1))).status, 413, "2MB まで");
+  assert.equal((await api(`/api/images/${s.docId}/ZZZZZZZZZZZZZZZZZZZZZZ`)).status, 404);
+  assert.equal((await api("/api/images/..%2F..%2Fx")).status, 404);
+
+  assert.equal((await s.send([insertImage(0, src)])).type, "steps", "置いた写真は本文に入れられる");
+  s.ws.sendJson({ type: "steps", version: s.version, clientId: "c1", steps: [insertImage(0, "https://evil.example/x.png")] });
+  assert.equal((await s.ws.until("error")).code, "invalid", "外部の画像は本文に入れられない");
+});
+
+test("写真は 1 文書 20 枚まで", async () => {
+  const s = await session();
+  const statuses = [];
+  // IP ごとの回数制限（60 秒あたり 10 回）に掛からないよう、IP を変えて送る
+  for (let i = 0; i < 21; i++) statuses.push((await upload(s)).status);
+  assert.deepEqual(statuses, [...Array(20).fill(201), 409]);
+});
+
+test("完了すると最新版だけが残り、履歴と使っていない写真は消える", async () => {
+  const s = await session();
+  const [a, b] = [await (await upload(s)).json(), await (await upload(s)).json()];
+  await s.send([insertImage(0, a.src)]);
+  await s.send([insertImage(0, b.src)]);
+  await s.send([{ stepType: "replace", from: 0, to: 1 }]); // b を消す
+  await s.send([insertText(2, "確定")]); // 残った写真の次の段落に書く
+  const before = (await (await api(`/api/docs/${s.docId}/revisions`)).json()).revisions.length;
+  assert.ok(before >= 4);
+
+  s.ws.sendJson({ type: "close" });
+  await s.ws.until("archive");
+  await sleep(300);
+  const { revisions } = await (await api(`/api/docs/${s.docId}/revisions`)).json();
+  assert.deepEqual(revisions, [], "履歴は消える");
+  assert.equal((await api(`/api/images/${a.src}`)).status, 200, "最新版で使っている写真は残る");
+  assert.equal((await api(`/api/images/${b.src}`)).status, 404, "使っていない写真は消える");
+
+  const { init } = await hello(s.docId, s.user);
+  assert.equal(init.version, s.version, "版の番号はそのまま");
+  assert.equal(init.doc.content[0].type, "image");
+  assert.match(J(init.doc), /確定/);
 });
 
 test("リンクは http・https・mailto だけを受け付ける", async () => {

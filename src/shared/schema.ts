@@ -1,9 +1,10 @@
 import { Schema } from "prosemirror-model";
-import { isSafeHref } from "./constants";
+import { IMAGE_SRC_RE, isSafeHref } from "./constants";
 
 // DOM 型に依存しない最小限の要素型（Worker 側でも型検査を通すため）
 interface El {
   getAttribute(name: string): string | null;
+  dataset?: Record<string, string | undefined>;
   style: { fontWeight: string };
 }
 
@@ -39,6 +40,43 @@ export const schema = new Schema({
         { "data-task-item": "", "data-checked": node.attrs.checked ? "true" : "false", class: "task-item" },
         ["span", { class: "task-box", contenteditable: "false" }],
         ["div", { class: "task-text" }, 0],
+      ],
+    },
+    // 写真。src は「文書 ID/写真 ID」で、このサイトに置いた写真だけを指す（外部の画像は読み込まない）
+    image: {
+      group: "block",
+      atom: true,
+      draggable: false,
+      attrs: {
+        src: {
+          validate: (value: unknown) => {
+            if (typeof value !== "string" || !IMAGE_SRC_RE.test(value)) throw new RangeError("invalid image src");
+          },
+        },
+        width: { default: 0, validate: "number" },
+        height: { default: 0, validate: "number" },
+      },
+      parseDOM: [
+        {
+          tag: "img[data-src]",
+          getAttrs: (dom) => {
+            const el = dom as unknown as El;
+            const src = el.getAttribute("data-src");
+            if (!src || !IMAGE_SRC_RE.test(src)) return false;
+            return { src, width: Number(el.getAttribute("width")) || 0, height: Number(el.getAttribute("height")) || 0 };
+          },
+        },
+      ],
+      toDOM: (node) => [
+        "img",
+        {
+          class: "doc-image",
+          src: `/api/images/${node.attrs.src}`,
+          "data-src": node.attrs.src,
+          ...(node.attrs.width && node.attrs.height ? { width: node.attrs.width, height: node.attrs.height } : {}),
+          alt: "",
+          loading: "lazy",
+        },
       ],
     },
     text: { group: "inline" },

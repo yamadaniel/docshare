@@ -3,6 +3,8 @@ import type { DocRoom } from "./do/DocRoom";
 export interface Env {
   ASSETS: Fetcher;
   DB: D1Database;
+  /** 写真の保存先 */
+  IMAGES?: R2Bucket;
   DOC_ROOM: DurableObjectNamespace<DocRoom>;
   CREATE_LIMITER?: RateLimit;
   WS_LIMITER?: RateLimit;
