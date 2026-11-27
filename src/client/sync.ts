@@ -51,6 +51,9 @@ export class DocConnection {
   private handshakeTimer = 0;
   private probeTimer = 0;
   private lastPong = 0;
+  /** IME の変換中に届いた step。確定後にまとめて適用する */
+  private heldSteps: Extract<ServerMessage, { type: "steps" }>[] = [];
+  private compositionTimer = 0;
 
   constructor(
     private readonly docId: string,
@@ -147,19 +150,20 @@ export class DocConnection {
   };
 
   private readonly onVisibility = (): void => {
-    if (document.visibilityState === "hidden") this.sendNow();
+    if (document.visibilityState === "hidden") this.sendNow(true);
     else if (!this.ws) this.connect();
     else this.probe();
   };
 
   destroy(): void {
-    this.sendNow();
+    this.sendNow(true);
     this.closed = true;
     clearTimeout(this.sendTimer);
     clearTimeout(this.reconnectTimer);
     clearInterval(this.pingTimer);
     clearTimeout(this.handshakeTimer);
     clearTimeout(this.probeTimer);
+    clearTimeout(this.compositionTimer);
     window.removeEventListener("online", this.onOnline);
     window.removeEventListener("offline", this.onOffline);
     document.removeEventListener("visibilitychange", this.onVisibility);
@@ -202,8 +206,12 @@ export class DocConnection {
       const state = createState(Node.fromJSON(schema, msg.doc), [
         collab({ version: msg.version, clientID: this.clientId }),
       ]);
+      this.heldSteps = [];
       if (this.view) this.view.updateState(state);
-      else this.view = this.cb.createView(state);
+      else {
+        this.view = this.cb.createView(state);
+        this.view.dom.addEventListener("compositionend", () => this.waitComposition());
+      }
       this.needReset = false;
       this.synced = true;
     } else if (msg.version === local) {
@@ -221,6 +229,12 @@ export class DocConnection {
   private onSteps(msg: Extract<ServerMessage, { type: "steps" }>): void {
     const view = this.view;
     if (!view) return;
+    // 変換中に文書を書き換えると変換が途切れるので、確定まで待つ
+    if (view.composing || this.heldSteps.length) {
+      this.heldSteps.push(msg);
+      this.waitComposition();
+      return;
+    }
     const current = getVersion(view.state);
     const from = msg.version - msg.steps.length;
     if (from < current) return; // 受信済み
@@ -280,6 +294,20 @@ export class DocConnection {
     this.cb.onReset(reason);
   }
 
+  // ---- IME ----
+
+  /** 変換が終わるまで待ち、届いていた step の適用と未送信 step の送信を行う */
+  private waitComposition(): void {
+    clearTimeout(this.compositionTimer);
+    this.compositionTimer = window.setTimeout(() => {
+      if (this.view?.composing) return this.waitComposition();
+      const held = this.heldSteps;
+      this.heldSteps = [];
+      for (const msg of held) this.onSteps(msg);
+      this.sendNow();
+    }, 50);
+  }
+
   // ---- 送信 ----
 
   /** ローカル編集のたびに呼ぶ。入力停止 500ms 後（最大 2 秒間隔）に送信 */
@@ -292,10 +320,13 @@ export class DocConnection {
     this.sendTimer = window.setTimeout(() => this.sendNow(), wait);
   }
 
-  private sendNow(): void {
+  /** force: 変換中でも送る（タブを離れるときなど、送れずに失うのを避ける） */
+  private sendNow(force = false): void {
     clearTimeout(this.sendTimer);
     this.firstPendingAt = 0;
     if (!this.view || !this.synced || this.inflight) return;
+    // 変換中の未確定文字は送らない。確定後に waitComposition から送る
+    if (this.view.composing && !force) return this.waitComposition();
     const sendable = sendableSteps(this.view.state);
     if (!sendable) return;
     // 1メッセージの上限に収まる分だけ送る（残りは確定後に続けて送る）
