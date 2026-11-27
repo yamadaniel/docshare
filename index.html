@@ -7,13 +7,7 @@
     <meta name="robots" content="noindex" />
     <meta name="color-scheme" content="light dark" />
     <title>docshare</title>
-    <script>
-      // 選んだテーマを描画前に適用する（ちらつき防止）
-      try {
-        var t = localStorage.getItem("ds.theme");
-        if (t === "light" || t === "dark") document.documentElement.dataset.theme = t;
-      } catch (e) {}
-    </script>
+    <script src="/theme-init.js"></script>
   </head>
   <body>
     <div id="app"></div>
