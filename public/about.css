@@ -134,12 +134,12 @@ a:focus-visible, .btn:focus-visible { outline: 3px solid var(--accent); outline-
 }
 /* 写真の手（ぱくたそ）を切り抜いたもの。指は下向きで、左上から少し右下へ向けて伸ばす */
 .finger.left {
-  --tap: .7; --tx: 67px; --ty: 108.5px; width: 93px;
+  --tap: .7; --tx: 60.8px; --ty: 109px; width: 87px;
   transform: translate(calc(var(--away) * -.342), calc(var(--away) * -.94 + var(--press) * 2px)) rotate(-20deg);
 }
 /* 右上から少し左下へ向けて伸ばす */
 .finger.right {
-  --tap: .86; --tx: 26.8px; --ty: 108.5px; width: 106px;
+  --tap: .86; --tx: 26.4px; --ty: 109px; width: 87px;
   transform: translate(calc(var(--away) * .342), calc(var(--away) * -.94 + var(--press) * 2px)) rotate(20deg);
 }
 
