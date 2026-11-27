@@ -6,8 +6,6 @@
   --line: #dfe2e8;
   --accent: #2563eb;
   --accent-ink: #ffffff;
-  --c1: #ea6a1f;
-  --c2: #11915a;
 }
 @media (prefers-color-scheme: dark) {
   :root:not([data-theme="light"]) {
@@ -18,8 +16,6 @@
     --line: #2a2e37;
     --accent: #6ea0ff;
     --accent-ink: #0b1220;
-    --c1: #ff9a5c;
-    --c2: #4fd18f;
   }
 }
 :root[data-theme="dark"] {
@@ -30,8 +26,6 @@
   --line: #2a2e37;
   --accent: #6ea0ff;
   --accent-ink: #0b1220;
-  --c1: #ff9a5c;
-  --c2: #4fd18f;
   color-scheme: dark;
 }
 :root[data-theme="light"] { color-scheme: light; }
@@ -103,17 +97,15 @@ a:focus-visible, .btn:focus-visible { outline: 3px solid var(--accent); outline-
 }
 .doc-head { display: flex; justify-content: space-between; align-items: baseline; gap: 8px; margin-bottom: 14px; }
 .doc-title { font-weight: 900; font-size: 18px; }
-.who { display: flex; gap: 4px; }
-.who i { width: 20px; height: 20px; border-radius: 50%; display: grid; place-items: center; color: #fff; font: 700 10px/1 system-ui, sans-serif; }
+/* 実際の画面と同じく、接続人数を緑の点と数字で示す */
+.presence { display: flex; align-items: center; gap: 5px; color: var(--sub); font: 500 13px/1 system-ui, sans-serif; font-variant-numeric: tabular-nums; }
+.presence::before { content: ""; width: 7px; height: 7px; border-radius: 50%; background: #2e9e5b; }
 .screen ul { list-style: none; margin: 0; padding: 0; display: grid; gap: 9px; }
 .screen li { display: flex; align-items: center; gap: 9px; }
 .box { flex: none; width: 17px; height: 17px; border-radius: 5px; border: 1.6px solid var(--sub); position: relative; }
 .box.on { background: var(--accent); border-color: var(--accent); }
 .box.on::after { content: ""; position: absolute; left: 5px; top: 1.5px; width: 4px; height: 8px; border: solid #fff; border-width: 0 2px 2px 0; transform: rotate(45deg); }
-.done { color: var(--sub); text-decoration: line-through; }
-.caret { display: inline-block; width: 2px; height: 1.1em; vertical-align: -2px; margin-left: 1px; border-radius: 1px; }
-.tag { font: 700 10px/1 system-ui, sans-serif; color: #fff; padding: 3px 5px; border-radius: 4px; margin-left: 4px; vertical-align: 2px; }
-.bg-c1 { background: var(--c1); } .bg-c2 { background: var(--c2); }
+.done { color: var(--sub); }
 
 /* 2. 写真が広がる */
 .reveal { height: 240vh; --p: 0; }
@@ -147,7 +139,6 @@ a:focus-visible, .btn:focus-visible { outline: 3px solid var(--accent); outline-
 .person img { width: 100%; aspect-ratio: 4 / 5; object-fit: cover; border-radius: 22px; }
 .person figcaption { margin-top: 10px; font-size: 14px; color: var(--sub); display: flex; align-items: center; gap: 8px; }
 .person figcaption b { color: var(--ink); }
-.dot { width: 10px; height: 10px; border-radius: 50%; flex: none; }
 .person.left { transform: translateX(calc((1 - clamp(0, var(--p) * 3, 1)) * -40px)); }
 .person.right { transform: translateX(calc((1 - clamp(0, var(--p) * 3, 1)) * 40px)); }
 .person.left img { object-position: 62% 50%; }
@@ -156,7 +147,7 @@ a:focus-visible, .btn:focus-visible { outline: 3px solid var(--accent); outline-
   background: var(--paper); border-radius: 22px; padding: 20px 20px 22px;
   box-shadow: 0 1px 0 var(--line), 0 30px 60px -30px rgba(10, 20, 50, .35);
 }
-.memo .doc-title { margin-bottom: 12px; }
+
 .memo ul { list-style: none; margin: 0; padding: 0; display: grid; gap: 10px; }
 .memo li { display: flex; align-items: center; gap: 10px; }
 .memo li[style] {
@@ -204,6 +195,22 @@ a:focus-visible, .btn:focus-visible { outline: 3px solid var(--accent); outline-
 .more dd { margin: 0; color: var(--sub); font-size: 15px; }
 
 /* 7. 始め方 */
+.compare { padding: 10vh 16px; }
+.compare-inner { max-width: 1120px; margin: 0 auto; }
+.compare h2 { margin: 0 0 14px; font-weight: 900; font-size: clamp(28px, 4.6vw, 48px); line-height: 1.3; }
+.compare-lead, .compare-note { max-width: 40em; margin: 0 0 28px; color: var(--sub); font-size: 15px; }
+.compare-note { margin: 24px 0 0; }
+.compare .nw { display: inline-block; }
+.compare table { width: 100%; border-collapse: collapse; font-size: 15px; }
+.compare th, .compare td { text-align: left; vertical-align: top; padding: 14px 12px; border-top: 1px solid var(--line); }
+.compare thead th { border-top: 0; font-size: 13px; color: var(--sub); font-weight: 700; padding-bottom: 10px; }
+.compare tbody th { font-weight: 700; white-space: nowrap; width: 8.5em; }
+.compare td { width: 40%; }
+.compare td.good, .compare td.bad { position: relative; padding-left: 30px; }
+.compare td.good::before, .compare td.bad::before { position: absolute; left: 8px; top: 14px; font-weight: 900; }
+.compare td.good::before { content: "○"; color: var(--accent); }
+.compare td.bad::before { content: "×"; color: var(--sub); }
+
 .steps { padding: 10vh 16px; }
 .steps ol { list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: repeat(3, 1fr); gap: clamp(16px, 3vw, 32px); counter-reset: s; }
 .steps li { counter-increment: s; background: var(--paper); border-radius: 22px; padding: 22px 22px 26px; }
@@ -229,6 +236,18 @@ footer a { color: inherit; }
   .person figcaption { font-size: 12px; margin-top: 6px; }
   .uses-inner { grid-template-columns: 1fr; }
   .more dl { grid-template-columns: 1fr; }
+  /* 狭い画面では表を項目ごとの縦並びにする */
+  .compare thead { display: none; }
+  .compare table, .compare tbody, .compare tr, .compare th, .compare td { display: block; width: auto; }
+  .compare tr { padding: 16px 0; border-top: 1px solid var(--line); }
+  .compare th, .compare td { border-top: 0; padding: 0; }
+  .compare tbody th { margin-bottom: 8px; font-size: 16px; }
+  .compare td + td { margin-top: 8px; }
+  .compare td.good, .compare td.bad { padding-left: 0; }
+  .compare td::before { position: static !important; display: block; font: 700 12px/1.6 system-ui, sans-serif; color: var(--sub); }
+  .compare td.good::before { content: "○ docshare"; color: var(--accent); }
+  .compare td.bad::before { content: "× docshare"; }
+  .compare td:last-child::before { content: "Google ドキュメント"; }
   .steps ol { grid-template-columns: 1fr; }
   .link-pill { font-size: 12px; padding: 10px 14px; }
 }
