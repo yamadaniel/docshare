@@ -4,215 +4,161 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
     <meta name="referrer" content="no-referrer" />
-    <meta name="robots"/>
     <meta name="color-scheme" content="light dark" />
+    <link rel="icon" href="/favicon.ico" sizes="48x48" />
+    <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
+    <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
     <title>docshare とは</title>
-    <meta name="description" content="リンクを知っていれば誰でも一緒に書ける、ログイン不要の軽量な共同編集メモ。" />
-    <script>
-      // 選んだテーマを描画前に適用する（ちらつき防止）
-      try {
-        var t = localStorage.getItem("ds.theme");
-        if (t === "light" || t === "dark") document.documentElement.dataset.theme = t;
-      } catch (e) {}
-    </script>
-    <style>
-      :root {
-        --bg: #ffffff;
-        --fg: #1c1c1e;
-        --muted: #6b6b70;
-        --line: #e2e2e6;
-        --surface: #f5f5f7;
-        --accent: #2563eb;
-        --accent-fg: #ffffff;
-        --tint: #eaf1ff;
-        --c1: #f97316;
-        --c2: #16a34a;
-      }
-      @media (prefers-color-scheme: dark) {
-        :root:not([data-theme="light"]) {
-          --bg: #131315;
-          --fg: #ececf0;
-          --muted: #9a9aa2;
-          --line: #2c2c31;
-          --surface: #1e1e22;
-          --accent: #6ea0ff;
-          --accent-fg: #0b1220;
-          --tint: #1d2840;
-          --c1: #fb923c;
-          --c2: #4ade80;
-        }
-      }
-      :root[data-theme="dark"] {
-        --bg: #131315;
-        --fg: #ececf0;
-        --muted: #9a9aa2;
-        --line: #2c2c31;
-        --surface: #1e1e22;
-        --accent: #6ea0ff;
-        --accent-fg: #0b1220;
-        --tint: #1d2840;
-        --c1: #fb923c;
-        --c2: #4ade80;
-        color-scheme: dark;
-      }
-      :root[data-theme="light"] { color-scheme: light; }
-      * { box-sizing: border-box; }
-      html { -webkit-text-size-adjust: 100%; }
-      body {
-        margin: 0;
-        background: var(--bg);
-        color: var(--fg);
-        font: 16px/1.7 system-ui, -apple-system, "Hiragino Sans", "Noto Sans JP", sans-serif;
-        overflow-wrap: anywhere;
-      }
-      main { max-width: 640px; margin: 0 auto; padding: 16px 16px 48px; }
-      .top { display: flex; align-items: center; justify-content: space-between; min-height: 44px; }
-      .brand { font-weight: 700; color: inherit; text-decoration: none; }
-      a { color: var(--accent); }
-      h1 { font-size: 28px; line-height: 1.35; margin: 32px 0 12px; }
-      h2 { font-size: 19px; margin: 40px 0 12px; }
-      .lead { color: var(--muted); margin: 0 0 24px; }
-      .btn {
-        display: inline-flex; align-items: center; justify-content: center;
-        min-height: 48px; padding: 0 24px; border-radius: 12px;
-        background: var(--accent); color: var(--accent-fg);
-        font-weight: 600; text-decoration: none;
-      }
-      svg { display: block; }
-      .hero-ill { margin: 32px auto 0; width: 100%; max-width: 420px; height: auto; }
-      .f { fill: var(--bg); stroke: var(--line); stroke-width: 2; }
-      .s { fill: var(--surface); }
-      .bar { fill: var(--line); }
-      .bar-m { fill: var(--muted); opacity: .45; }
-      .ac { fill: var(--accent); }
-      .acs { fill: none; stroke: var(--accent); stroke-width: 2.4; stroke-linecap: round; stroke-linejoin: round; }
-      .tint { fill: var(--tint); }
-      .c1 { fill: var(--c1); } .c2 { fill: var(--c2); }
-      .c1s { stroke: var(--c1); stroke-width: 2.4; stroke-linecap: round; }
-      .c2s { stroke: var(--c2); stroke-width: 2.4; stroke-linecap: round; }
-      .lbl { fill: #fff; font: 700 11px system-ui, sans-serif; }
-      .features { list-style: none; margin: 0; padding: 0; display: grid; gap: 12px; }
-      .features li {
-        display: grid; grid-template-columns: 52px 1fr; gap: 14px; align-items: center;
-        padding: 14px 16px; border: 1px solid var(--line); border-radius: 12px;
-      }
-      .features svg { width: 52px; height: 52px; }
-      .features b { display: block; }
-      .features span { color: var(--muted); font-size: 15px; }
-      ol.steps { list-style: none; margin: 0; padding: 0; display: grid; gap: 12px; counter-reset: step; }
-      ol.steps li {
-        display: grid; grid-template-columns: 72px 1fr; gap: 14px; align-items: center;
-        padding: 12px 16px; border-radius: 12px; background: var(--surface);
-      }
-      ol.steps svg { width: 72px; height: 72px; }
-      ol.steps .n { display: block; color: var(--accent); font-weight: 700; font-size: 13px; }
-      .note {
-        display: grid; grid-template-columns: 52px 1fr; gap: 14px; align-items: center;
-        padding: 14px 16px; border-radius: 12px; background: var(--surface); font-size: 15px;
-      }
-      .note svg { width: 52px; height: 52px; }
-      .note p { margin: 0; }
-      .note p + p { margin-top: 6px; }
-      .end { margin-top: 40px; text-align: center; }
-      @media (min-width: 600px) {
-        .features { grid-template-columns: 1fr 1fr; }
-      }
-    </style>
+    <meta name="description" content="リンクを送るだけで、一緒に書けるメモ。ログインもアプリもいらない、軽い共同編集メモ。" />
+    <script src="/theme-init.js"></script>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=Zen+Kaku+Gothic+New:wght@500;700;900&display=swap" rel="stylesheet" />
+    <link rel="stylesheet" href="/about.css" />
   </head>
   <body>
+    <header class="bar">
+      <a class="brand" href="/">docshare</a>
+      <a class="btn small" href="/">使ってみる</a>
+    </header>
+
     <main>
-      <div class="top">
-        <a class="brand" href="/">docshare</a>
-        <a href="/">使ってみる</a>
-      </div>
-
-      <h1>リンクを送るだけで、<br />一緒に書けるメモ。</h1>
-      <p class="lead">ログインもアプリも不要。文書を作ってリンクを渡せば、受け取った人もその場で編集できる。</p>
-      <a class="btn" href="/">文書を作る</a>
-
-      <svg class="hero-ill" viewBox="0 0 340 200" role="img" aria-label="2 台のスマホで同じメモを同時に編集している様子">
-        <g transform="translate(8 8)">
-          <rect class="f" x="0" y="0" width="118" height="184" rx="18"/>
-          <rect class="bar" x="44" y="10" width="30" height="4" rx="2"/>
-          <rect class="bar-m" x="14" y="28" width="62" height="8" rx="4"/>
-          <g transform="translate(14 50)">
-            <rect class="ac" width="13" height="13" rx="3"/><path d="M3 6.5l2.6 2.6L10 4" fill="none" stroke="#fff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
-            <rect class="bar" x="20" y="4" width="40" height="5" rx="2.5"/>
-          </g>
-          <g transform="translate(14 74)">
-            <rect class="ac" width="13" height="13" rx="3"/><path d="M3 6.5l2.6 2.6L10 4" fill="none" stroke="#fff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
-            <rect class="bar" x="20" y="4" width="30" height="5" rx="2.5"/>
-          </g>
-          <g transform="translate(14 98)">
-            <rect class="f" width="13" height="13" rx="3" style="stroke:var(--muted);stroke-width:1.6"/>
-            <rect class="bar-m" x="20" y="4" width="52" height="5" rx="2.5"/>
-          </g>
-          <g transform="translate(14 122)">
-            <rect class="f" width="13" height="13" rx="3" style="stroke:var(--muted);stroke-width:1.6"/>
-            <rect class="bar-m" x="20" y="4" width="36" height="5" rx="2.5"/>
-          </g>
-          <line class="c1s" x1="88" y1="98" x2="88" y2="114"/>
-          <rect class="c1" x="88" y="84" width="18" height="14" rx="4"/>
-        </g>
-        <g transform="translate(214 8)">
-          <rect class="f" x="0" y="0" width="118" height="184" rx="18"/>
-          <rect class="bar" x="44" y="10" width="30" height="4" rx="2"/>
-          <rect class="bar-m" x="14" y="28" width="62" height="8" rx="4"/>
-          <g transform="translate(14 50)">
-            <rect class="ac" width="13" height="13" rx="3"/><path d="M3 6.5l2.6 2.6L10 4" fill="none" stroke="#fff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
-            <rect class="bar" x="20" y="4" width="40" height="5" rx="2.5"/>
-          </g>
-          <g transform="translate(14 74)">
-            <rect class="ac" width="13" height="13" rx="3"/><path d="M3 6.5l2.6 2.6L10 4" fill="none" stroke="#fff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
-            <rect class="bar" x="20" y="4" width="30" height="5" rx="2.5"/>
-          </g>
-          <g transform="translate(14 98)">
-            <rect class="f" width="13" height="13" rx="3" style="stroke:var(--muted);stroke-width:1.6"/>
-            <rect class="bar-m" x="20" y="4" width="52" height="5" rx="2.5"/>
-          </g>
-          <g transform="translate(14 122)">
-            <rect class="f" width="13" height="13" rx="3" style="stroke:var(--muted);stroke-width:1.6"/>
-            <rect class="bar-m" x="20" y="4" width="36" height="5" rx="2.5"/>
-          </g>
-          <line class="c2s" x1="72" y1="122" x2="72" y2="138"/>
-          <rect class="c2" x="72" y="108" width="18" height="14" rx="4"/>
-        </g>
-        <path d="M134 70 C 160 44, 180 44, 206 70" fill="none" stroke="var(--muted)" stroke-width="2" stroke-dasharray="4 5"/>
-        <path d="M134 140 C 160 166, 180 166, 206 140" fill="none" stroke="var(--muted)" stroke-width="2" stroke-dasharray="4 5"/>
-        <circle class="tint" cx="170" cy="104" r="26"/>
-        <g class="acs" transform="translate(158 92)">
-          <path d="M10 14a5 5 0 0 0 7 0l4-4a5 5 0 0 0-7-7l-1.5 1.5"/>
-          <path d="M14 10a5 5 0 0 0-7 0l-4 4a5 5 0 0 0 7 7l1.5-1.5"/>
-        </g>
-      </svg>
-
-      <h2>できること</h2>
-      <ul class="features">
-        <li><svg viewBox="0 0 52 52" aria-hidden="true"><rect class="tint" width="52" height="52" rx="14"/><rect class="f" x="10" y="12" width="32" height="28" rx="5"/><rect class="bar" x="15" y="19" width="14" height="4" rx="2"/><rect class="bar" x="15" y="29" width="20" height="4" rx="2"/><line class="c1s" x1="31" y1="17" x2="31" y2="25"/><line class="c2s" x1="37" y1="27" x2="37" y2="35"/></svg><div><b>同時に編集</b><span>同じ文書を開いている人の入力がすぐに反映される。</span></div></li>
-        <li><svg viewBox="0 0 52 52" aria-hidden="true"><rect class="tint" width="52" height="52" rx="14"/><rect class="ac" x="12" y="12" width="12" height="12" rx="3"/><path d="M15 18l2.4 2.4L21.5 16" fill="none" stroke="#fff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/><rect class="bar-m" x="28" y="15.5" width="13" height="5" rx="2.5"/><rect class="f" x="12" y="29" width="12" height="12" rx="3" style="stroke:var(--muted);stroke-width:1.6"/><rect class="bar-m" x="28" y="32.5" width="10" height="5" rx="2.5"/></svg><div><b>チェックボックス</b><span>行頭で「[ ]」と空白を打つか ☑ ボタンで、やることリストになる。</span></div></li>
-        <li><svg viewBox="0 0 52 52" aria-hidden="true"><rect class="tint" width="52" height="52" rx="14"/><text x="9" y="25" style="fill:var(--accent);font:800 14px system-ui,sans-serif">B</text><text x="20" y="25" style="fill:var(--accent);font:italic 600 14px Georgia,serif">I</text><text x="29" y="25" style="fill:var(--accent);font:600 14px system-ui,sans-serif;text-decoration:underline">U</text><g class="acs" transform="translate(16 28) scale(.8)"><path d="M10 14a5 5 0 0 0 7 0l4-4a5 5 0 0 0-7-7l-1.5 1.5"/><path d="M14 10a5 5 0 0 0-7 0l-4 4a5 5 0 0 0 7 7l1.5-1.5"/></g></svg><div><b>太字・斜体・下線・リンク</b><span>URL を貼るとそのままリンクになる。</span></div></li>
-        <li><svg viewBox="0 0 52 52" aria-hidden="true"><rect class="tint" width="52" height="52" rx="14"/><g class="acs"><path d="M14 26a12 12 0 1 0 3.5-8.5"/><path d="M13 13v6h6"/><path d="M26 20v7l5 3"/></g></svg><div><b>編集履歴</b><span>誰がいつ書いたかが残り、どの版にも戻せる。</span></div></li>
-        <li><svg viewBox="0 0 52 52" aria-hidden="true"><rect class="tint" width="52" height="52" rx="14"/><g fill="none" stroke="var(--accent)" stroke-width="2.2" stroke-linecap="round"><path d="M26 17a9 9 0 0 0 0 18Z"/><path d="M26 9v3M14.7 13.7l2.1 2.1M10 26h3M14.7 38.3l2.1-2.1M26 40v3"/></g><path d="M26 17a9 9 0 0 1 0 18Z" class="ac"/></svg><div><b>ライト・ダーク</b><span>画面上の太陽と月のボタンで切り替える。</span></div></li>
-        <li><svg viewBox="0 0 52 52" aria-hidden="true"><rect class="tint" width="52" height="52" rx="14"/><rect class="f" x="12" y="10" width="24" height="32" rx="4"/><rect class="bar" x="17" y="17" width="14" height="3.5" rx="1.7"/><rect class="bar" x="17" y="24" width="10" height="3.5" rx="1.7"/><rect class="bar" x="17" y="31" width="12" height="3.5" rx="1.7"/><path class="ac" d="M38 26l2 5 5 2-5 2-2 5-2-5-5-2 5-2z"/></svg><div><b>AI にも読める</b><span>リンクを Claude・ChatGPT・Gemini などに渡すと本文を読める。</span></div></li>
-      </ul>
-
-      <h2>使い方</h2>
-      <ol class="steps">
-        <li><svg viewBox="0 0 72 72" aria-hidden="true"><rect class="tint" width="72" height="72" rx="18"/><circle class="ac" cx="36" cy="27" r="9"/><path class="ac" d="M20 52a16 13 0 0 1 32 0z"/><rect class="f" x="40" y="40" width="22" height="14" rx="4"/><rect class="bar-m" x="44" y="45.5" width="12" height="3.5" rx="1.7"/></svg><div><span class="n">STEP 1</span>はじめに名前を決める（編集履歴に表示される。あとで変えられる）。</div></li>
-        <li><svg viewBox="0 0 72 72" aria-hidden="true"><rect class="tint" width="72" height="72" rx="18"/><rect class="f" x="20" y="14" width="28" height="40" rx="5"/><rect class="bar" x="25" y="22" width="16" height="4" rx="2"/><rect class="bar" x="25" y="30" width="12" height="4" rx="2"/><circle class="ac" cx="48" cy="50" r="11"/><path d="M48 44v12M42 50h12" stroke="#fff" stroke-width="2.6" stroke-linecap="round"/></svg><div><span class="n">STEP 2</span>「新しい文書」で文書を作る。</div></li>
-        <li><svg viewBox="0 0 72 72" aria-hidden="true"><rect class="tint" width="72" height="72" rx="18"/><g class="acs"><path d="M36 42V18"/><path d="M27 26l9-9 9 9"/><path d="M22 34v14a4 4 0 0 0 4 4h20a4 4 0 0 0 4-4V34"/></g></svg><div><span class="n">STEP 3</span>「共有」からリンクを送る。</div></li>
-      </ol>
-
-      <h2>気をつけること</h2>
-      <div class="note">
-        <svg viewBox="0 0 52 52" aria-hidden="true"><rect class="tint" width="52" height="52" rx="14"/><path class="acs" d="M26 10l13 5v10c0 8-5.5 14-13 17-7.5-3-13-9-13-17V15z"/><path d="M26 19v9" stroke="var(--accent)" stroke-width="2.6" stroke-linecap="round"/><circle class="ac" cx="26" cy="33.5" r="1.8"/></svg>
-        <div>
-        <p>リンクを知っている人は誰でも読み書きできる。パスワードなど人に見られて困ることは書かない。</p>
-        <p>文書は検索エンジンには載らない。</p>
+      <section class="scene hero">
+        <div class="stage">
+          <div class="hero-copy">
+            <h1>リンクを送るだけで、<br />一緒に書けるメモ。</h1>
+            <p class="hero-sub">ログインもアプリもいらない。文書を作ってリンクを渡せば、受け取った人もその場で書き込める。</p>
+            <a class="btn" href="/">文書を作る</a>
+            <p class="hint">スクロールして見る</p>
+          </div>
+          <div class="phone" aria-hidden="true">
+            <div class="screen">
+              <div class="doc-head">
+                <span class="doc-title">週末の買い出し</span>
+                <span class="who"><i class="bg-c1">さ</i><i class="bg-c2">け</i></span>
+              </div>
+              <ul>
+                <li><span class="box on"></span><span class="done">牛乳</span></li>
+                <li><span class="box on"></span><span class="done">卵 10個</span></li>
+                <li class="t35 lerp-in"><span class="box"></span><span>キャベツ 半玉</span></li>
+                <li class="t50 lerp-in"><span class="box"></span><span>食パン 6枚切り<span class="caret bg-c1"></span><span class="tag bg-c1">さき</span></span></li>
+                <li class="t65 lerp-in"><span class="box"></span><span>豆腐<span class="caret bg-c2"></span><span class="tag bg-c2">けんた</span></span></li>
+              </ul>
+            </div>
+          </div>
         </div>
-      </div>
+      </section>
 
-      <p class="end"><a class="btn" href="/">文書を作る</a></p>
+      <section class="scene reveal">
+        <div class="stage">
+          <div class="reveal-frame">
+            <img src="/about-img/hands-phone.webp" width="800" height="534" alt="スマートフォンを両手で持って操作する女性の手元" />
+          </div>
+          <div class="reveal-copy">
+            <h2>書いたそばから、<br />相手の画面に。</h2>
+            <p>同じ文書を開いている人の入力は、保存ボタンを押さなくてもそのまま届く。</p>
+          </div>
+        </div>
+      </section>
+
+      <section class="scene duo">
+        <div class="stage">
+          <h2 class="duo-title">離れていても、<br />同じ一枚を。</h2>
+          <div class="duo-grid">
+            <figure class="person left">
+              <img src="/about-img/window.webp" width="800" height="533" alt="窓辺で手元の画面を見る女性の後ろ姿" loading="lazy" />
+              <figcaption><span class="dot bg-c1"></span><b>さき</b>旅先から</figcaption>
+            </figure>
+            <div class="memo" aria-hidden="true">
+              <div class="doc-title">旅行の持ち物</div>
+              <ul>
+                <li><span class="box on"></span><span class="done">充電器</span></li>
+                <li class="t20"><span class="box on"></span><span class="done">折りたたみ傘</span></li>
+                <li class="t35"><span class="box"></span><span>帰りの切符<span class="caret bg-c1"></span><span class="tag bg-c1">さき</span></span></li>
+                <li class="t55"><span class="box"></span><span>お土産リスト<span class="caret bg-c2"></span><span class="tag bg-c2">けんた</span></span></li>
+                <li class="t72"><span class="box"></span><span>宿の住所</span></li>
+              </ul>
+            </div>
+            <figure class="person right">
+              <img src="/about-img/suit-phone.webp" width="800" height="533" alt="スマートフォンを手に持つスーツ姿の男性" loading="lazy" />
+              <figcaption><span class="dot bg-c2"></span><b>けんた</b>会社から</figcaption>
+            </figure>
+          </div>
+        </div>
+      </section>
+
+      <section class="uses">
+        <div class="uses-inner">
+          <div class="uses-photo par">
+            <img src="/about-img/trip-table.webp" width="800" height="686" alt="テーブルに旅行雑誌とお菓子を広げて計画を立てる人たち" loading="lazy" />
+          </div>
+          <div>
+            <h2>決めごとは、<br />みんなで書けば早い。</h2>
+            <dl>
+              <dt>旅行の計画</dt>
+              <dd>行きたい場所と持ち物を、行く人全員で書き足す。</dd>
+              <dt>週末の買い出し</dt>
+              <dd>家族が気づいたものをその場で追加。買ったらチェック。</dd>
+              <dt>打ち合わせのメモ</dt>
+              <dd>話しながら同じメモを書いて、終わったらリンクを残すだけ。</dd>
+            </dl>
+          </div>
+        </div>
+      </section>
+
+      <section class="scene share">
+        <div class="stage">
+          <div class="share-photo">
+            <img src="/about-img/hand-iphone.webp" width="800" height="439" alt="スマートフォンを片手で持つ手元" loading="lazy" />
+          </div>
+          <div class="share-copy">
+            <h2>渡すのは、<br />リンクだけ。</h2>
+            <p>アカウント登録もアプリのインストールもいらない。受け取った人はブラウザで開いて、そのまま書ける。</p>
+          </div>
+          <div class="link-pill" aria-hidden="true">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M10 14a5 5 0 0 0 7 0l3-3a5 5 0 0 0-7-7l-1.2 1.2" /><path d="M14 10a5 5 0 0 0-7 0l-3 3a5 5 0 0 0 7 7l1.2-1.2" /></svg>
+            docshare<span>/d/k3Xa9…</span>
+          </div>
+        </div>
+      </section>
+
+      <section class="more" aria-labelledby="more-title">
+        <div class="more-inner">
+          <h2 id="more-title">メモに要るものは、そろっている。</h2>
+          <dl>
+            <div><dt>チェックボックス</dt><dd>行頭で「[ ]」と空白を打つか、☑ ボタンでやることリストになる。</dd></div>
+            <div><dt>太字・斜体・下線</dt><dd>大事なところだけ目立たせる。</dd></div>
+            <div><dt>リンク</dt><dd>URL を貼るとそのままリンクになる。</dd></div>
+            <div><dt>編集履歴</dt><dd>誰がいつ書いたかが残り、どの版にも戻せる。</dd></div>
+            <div><dt>ライト・ダーク</dt><dd>画面上の太陽と月のボタンで切り替える。</dd></div>
+            <div><dt>AI にも読める</dt><dd>リンクを Claude・ChatGPT・Gemini などに渡すと、本文を読んでもらえる。</dd></div>
+          </dl>
+        </div>
+      </section>
+
+      <section class="steps" aria-labelledby="steps-title">
+        <div class="steps-inner">
+          <h2 id="steps-title">始め方</h2>
+          <ol>
+            <li><b>名前を決める</b><span>編集履歴に表示される。あとで変えられる。</span></li>
+            <li><b>文書を作る</b><span>トップの「新しい文書」を押す。</span></li>
+            <li><b>リンクを送る</b><span>「共有」からリンクを送る。受け取った人もすぐ書ける。</span></li>
+          </ol>
+        </div>
+      </section>
+
+      <section class="closing">
+        <h2>さっそく、一枚。</h2>
+        <p class="note">リンクを知っている人は誰でも読み書きできる。パスワードなど人に見られて困ることは書かない。文書そのものは検索エンジンには載らない。</p>
+        <a class="btn" href="/">文書を作る</a>
+      </section>
     </main>
+
+    <footer>
+      <p>写真：<a href="https://www.pakutaso.com" title="フリー素材「ぱくたそ」">フリー素材「ぱくたそ」</a>。写真の人物と docshare は関係ない（画像はイメージ）。</p>
+      <p>このページで使用している素材は、ぱくたそ［ https://www.pakutaso.com ］のフリー素材を利用しています。二次配布物の受領者がこの素材を継続して利用する場合は、ぱくたそ公式サイトからご自身でダウンロードしていただくか、ぱくたそのご利用規約［ <a href="https://www.pakutaso.com/userpolicy.html">https://www.pakutaso.com/userpolicy.html</a> ］に同意していただく必要があります。</p>
+    </footer>
+
+    <script src="/about.js"></script>
   </body>
 </html>

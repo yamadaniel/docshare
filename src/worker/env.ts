@@ -5,4 +5,6 @@ export interface Env {
   DB: D1Database;
   DOC_ROOM: DurableObjectNamespace<DocRoom>;
   CREATE_LIMITER?: RateLimit;
+  WS_LIMITER?: RateLimit;
+  GLOBAL_CREATE_PER_MINUTE?: string;
 }

@@ -6,14 +6,11 @@
     <meta name="referrer" content="no-referrer" />
     <meta name="robots" content="noindex" />
     <meta name="color-scheme" content="light dark" />
+    <link rel="icon" href="/favicon.ico" sizes="48x48" />
+    <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
+    <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
     <title>docshare</title>
-    <script>
-      // 選んだテーマを描画前に適用する（ちらつき防止）
-      try {
-        var t = localStorage.getItem("ds.theme");
-        if (t === "light" || t === "dark") document.documentElement.dataset.theme = t;
-      } catch (e) {}
-    </script>
+    <script src="/theme-init.js"></script>
   </head>
   <body>
     <div id="app"></div>

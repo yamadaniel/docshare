@@ -16,7 +16,8 @@ rmSync(PERSIST_DIR, { recursive: true, force: true });
 run("npx", ["vite", "build", "--logLevel", "warn"]);
 run("npx", ["wrangler", "d1", "migrations", "apply", "docshare", "--local", "--persist-to", PERSIST_DIR]);
 
-const server = spawn("npx", ["wrangler", "dev", "--port", PORT, "--persist-to", PERSIST_DIR], {
+// 試験では文書を多く作るので、文書作成の全体上限を引き上げる
+const server = spawn("npx", ["wrangler", "dev", "--port", PORT, "--persist-to", PERSIST_DIR, "--var", "GLOBAL_CREATE_PER_MINUTE:1000"], {
   stdio: ["ignore", "pipe", "pipe"],
   detached: true,
 });

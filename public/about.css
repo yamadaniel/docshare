@@ -1,0 +1,256 @@
+:root {
+  --bg: #f4f5f7;
+  --paper: #ffffff;
+  --ink: #16181d;
+  --sub: #5d6270;
+  --line: #dfe2e8;
+  --accent: #2563eb;
+  --accent-ink: #ffffff;
+  --c1: #ea6a1f;
+  --c2: #11915a;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #0f1115;
+    --paper: #181b21;
+    --ink: #eceef2;
+    --sub: #9aa0ad;
+    --line: #2a2e37;
+    --accent: #6ea0ff;
+    --accent-ink: #0b1220;
+    --c1: #ff9a5c;
+    --c2: #4fd18f;
+  }
+}
+:root[data-theme="dark"] {
+  --bg: #0f1115;
+  --paper: #181b21;
+  --ink: #eceef2;
+  --sub: #9aa0ad;
+  --line: #2a2e37;
+  --accent: #6ea0ff;
+  --accent-ink: #0b1220;
+  --c1: #ff9a5c;
+  --c2: #4fd18f;
+  color-scheme: dark;
+}
+:root[data-theme="light"] { color-scheme: light; }
+
+* { box-sizing: border-box; }
+html { -webkit-text-size-adjust: 100%; }
+body {
+  margin: 0;
+  background: var(--bg);
+  color: var(--ink);
+  font: 16px/1.8 "Zen Kaku Gothic New", system-ui, -apple-system, "Hiragino Sans", "Noto Sans JP", sans-serif;
+  font-weight: 500;
+  overflow-wrap: anywhere;
+  line-break: strict;
+}
+img { display: block; max-width: 100%; }
+a { color: var(--accent); }
+a:focus-visible, .btn:focus-visible { outline: 3px solid var(--accent); outline-offset: 3px; }
+
+/* ---- 上部バー ---- */
+.bar {
+  position: fixed; inset: 0 0 auto; z-index: 20;
+  display: flex; align-items: center; justify-content: space-between;
+  height: 52px; padding: 0 16px;
+  background: color-mix(in srgb, var(--bg) 72%, transparent);
+  -webkit-backdrop-filter: saturate(1.6) blur(18px);
+  backdrop-filter: saturate(1.6) blur(18px);
+  border-bottom: 1px solid color-mix(in srgb, var(--line) 70%, transparent);
+}
+.brand { color: inherit; text-decoration: none; font-weight: 900; letter-spacing: .02em; }
+.btn {
+  display: inline-flex; align-items: center; justify-content: center;
+  min-height: 48px; padding: 0 28px; border-radius: 999px;
+  background: var(--accent); color: var(--accent-ink);
+  font-weight: 700; text-decoration: none;
+}
+.btn.small { min-height: 34px; padding: 0 16px; font-size: 14px; }
+
+/* ---- スクロールで進む場面 ---- */
+.scene { position: relative; }
+.stage { position: sticky; top: 0; height: 100vh; height: 100svh; overflow: hidden; }
+.lerp-in { opacity: clamp(0, calc((var(--p, 1) - var(--t, 0)) * 7), 1); }
+
+/* 1. 冒頭 */
+.hero { height: 230vh; --p: 0; }
+.hero .stage { display: grid; place-items: center; padding: 52px 16px 0; }
+.hero-copy {
+  position: absolute; inset: 0; display: grid; place-content: center; text-align: center; padding: 0 16px;
+  opacity: clamp(0, calc(1 - var(--p) * 2.4), 1);
+  transform: translateY(calc(var(--p) * -14vh)) scale(calc(1 - var(--p) * .12));
+}
+.hero h1 {
+  margin: 0; font-weight: 900; letter-spacing: -.01em;
+  font-size: clamp(30px, 8.4vw, 112px); line-height: 1.16;
+}
+.hero-sub { margin: 20px auto 28px; max-width: 30em; color: var(--sub); font-size: clamp(15px, 2.2vw, 19px); }
+.hero-copy .btn { justify-self: center; }
+.hint { margin: 36px 0 0; color: var(--sub); font-size: 13px; }
+
+.phone {
+  position: relative; width: min(300px, 72vw); aspect-ratio: 9 / 18.5;
+  border-radius: 44px; padding: 12px; background: #1b1d22;
+  box-shadow: 0 0 0 1.5px #3a3d45 inset, 0 0 0 1px rgba(255, 255, 255, .14), 0 40px 80px -30px rgba(10, 20, 50, .45);
+  transform: translateY(calc((1 - var(--p)) * 64vh)) scale(calc(.86 + var(--p) * .14));
+}
+.screen {
+  height: 100%; border-radius: 33px; overflow: hidden; background: var(--paper); color: var(--ink);
+  padding: 42px 18px 18px; font-size: 14px; line-height: 1.6;
+}
+.doc-head { display: flex; justify-content: space-between; align-items: baseline; gap: 8px; margin-bottom: 14px; }
+.doc-title { font-weight: 900; font-size: 18px; }
+.who { display: flex; gap: 4px; }
+.who i { width: 20px; height: 20px; border-radius: 50%; display: grid; place-items: center; color: #fff; font: 700 10px/1 system-ui, sans-serif; }
+.screen ul { list-style: none; margin: 0; padding: 0; display: grid; gap: 9px; }
+.screen li { display: flex; align-items: center; gap: 9px; }
+.box { flex: none; width: 17px; height: 17px; border-radius: 5px; border: 1.6px solid var(--sub); position: relative; }
+.box.on { background: var(--accent); border-color: var(--accent); }
+.box.on::after { content: ""; position: absolute; left: 5px; top: 1.5px; width: 4px; height: 8px; border: solid #fff; border-width: 0 2px 2px 0; transform: rotate(45deg); }
+.done { color: var(--sub); text-decoration: line-through; }
+.caret { display: inline-block; width: 2px; height: 1.1em; vertical-align: -2px; margin-left: 1px; border-radius: 1px; }
+.tag { font: 700 10px/1 system-ui, sans-serif; color: #fff; padding: 3px 5px; border-radius: 4px; margin-left: 4px; vertical-align: 2px; }
+.bg-c1 { background: var(--c1); } .bg-c2 { background: var(--c2); }
+
+/* 2. 写真が広がる */
+.reveal { height: 240vh; --p: 0; }
+.reveal-frame {
+  position: absolute; inset: 0;
+  clip-path: inset(calc((1 - var(--p)) * 22%) calc((1 - var(--p)) * 12%) round calc((1 - var(--p)) * 32px));
+}
+.reveal-frame img {
+  width: 100%; height: 100%; object-fit: cover; object-position: 60% 50%;
+  transform: scale(calc(1.18 - var(--p) * .18));
+}
+.reveal-frame::after { content: ""; position: absolute; inset: 0; background: linear-gradient(180deg, transparent 35%, rgba(8, 10, 14, .75)); }
+.reveal-copy {
+  position: absolute; left: 0; right: 0; bottom: 9vh; z-index: 1; padding: 0 24px;
+  max-width: 1120px; margin: 0 auto; color: #fff;
+  opacity: clamp(0, calc((var(--p) - .5) * 4), 1);
+  transform: translateY(calc((1 - clamp(0, (var(--p) - .5) * 3, 1)) * 30px));
+}
+.reveal-copy h2 { margin: 0 0 10px; font-weight: 900; font-size: clamp(30px, 6vw, 64px); line-height: 1.2; }
+.reveal-copy p { margin: 0; color: rgba(255, 255, 255, .85); max-width: 30em; }
+
+/* 3. 離れた二人 */
+.duo { height: 320vh; --p: 0; }
+.duo .stage { display: grid; align-content: center; gap: 28px; padding: 72px 16px 24px; }
+.duo-title { text-align: center; margin: 0; font-weight: 900; font-size: clamp(28px, 5.4vw, 56px); line-height: 1.25; }
+.duo-grid {
+  display: grid; grid-template-columns: 1fr minmax(260px, 340px) 1fr; gap: clamp(12px, 3vw, 40px);
+  align-items: center; max-width: 1120px; margin: 0 auto; width: 100%;
+}
+.person { margin: 0; opacity: clamp(0, calc(var(--p) * 5), 1); }
+.person img { width: 100%; aspect-ratio: 4 / 5; object-fit: cover; border-radius: 22px; }
+.person figcaption { margin-top: 10px; font-size: 14px; color: var(--sub); display: flex; align-items: center; gap: 8px; }
+.person figcaption b { color: var(--ink); }
+.dot { width: 10px; height: 10px; border-radius: 50%; flex: none; }
+.person.left { transform: translateX(calc((1 - clamp(0, var(--p) * 3, 1)) * -40px)); }
+.person.right { transform: translateX(calc((1 - clamp(0, var(--p) * 3, 1)) * 40px)); }
+.person.left img { object-position: 62% 50%; }
+.person.right img { object-position: 45% 30%; }
+.memo {
+  background: var(--paper); border-radius: 22px; padding: 20px 20px 22px;
+  box-shadow: 0 1px 0 var(--line), 0 30px 60px -30px rgba(10, 20, 50, .35);
+}
+.memo .doc-title { margin-bottom: 12px; }
+.memo ul { list-style: none; margin: 0; padding: 0; display: grid; gap: 10px; }
+.memo li { display: flex; align-items: center; gap: 10px; }
+.memo li[style] {
+  opacity: clamp(0, calc((var(--p) - var(--t)) * 7), 1);
+  transform: translateY(calc((1 - clamp(0, (var(--p) - var(--t)) * 7, 1)) * 6px));
+}
+
+/* 4. 使いみち */
+.uses { padding: 18vh 16px 14vh; }
+.uses-inner { max-width: 1120px; margin: 0 auto; display: grid; grid-template-columns: 1.1fr 1fr; gap: clamp(24px, 6vw, 80px); align-items: center; }
+.uses-photo { border-radius: 26px; overflow: hidden; }
+.uses-photo img { width: 100%; aspect-ratio: 5 / 4; object-fit: cover; transform: translateY(calc((var(--p, .5) - .5) * -40px)) scale(1.1); }
+.uses h2 { margin: 0 0 24px; font-weight: 900; font-size: clamp(28px, 4.6vw, 48px); line-height: 1.3; }
+.uses dl { margin: 0; }
+.uses dt { font-weight: 700; font-size: 18px; }
+.uses dd { margin: 2px 0 18px; color: var(--sub); }
+
+/* 5. 共有 */
+.share { height: 220vh; --p: 0; }
+.share .stage { background: #1d2127; color: #fff; }
+.share-photo { position: absolute; inset: 0; }
+.share-photo img { width: 100%; height: 100%; object-fit: cover; object-position: 58% 50%; transform: scale(calc(1.08 - var(--p) * .08)); }
+.share-photo::after { content: ""; position: absolute; inset: 0; background: linear-gradient(180deg, rgba(8, 10, 14, .55), transparent 55%); }
+.share-copy { position: absolute; left: 0; right: 0; top: 14vh; z-index: 1; padding: 0 24px; max-width: 1120px; margin: 0 auto; }
+.share-copy h2 { margin: 0 0 10px; font-weight: 900; font-size: clamp(32px, 7vw, 80px); line-height: 1.15; }
+.share-copy p { margin: 0; max-width: 24em; color: rgba(255, 255, 255, .88); }
+.link-pill {
+  position: absolute; left: 50%; top: 64%; z-index: 1;
+  display: flex; align-items: center; gap: 8px; white-space: nowrap;
+  padding: 12px 18px; border-radius: 999px; background: rgba(255, 255, 255, .95); color: #16181d;
+  font: 600 14px/1 system-ui, sans-serif; box-shadow: 0 20px 40px -16px rgba(0, 0, 0, .5);
+  opacity: clamp(0, calc((var(--p) - .25) * 5), 1);
+  transform: translate(calc(-50% + (1 - clamp(0, (var(--p) - .25) * 2, 1)) * 12vw), calc((1 - clamp(0, (var(--p) - .25) * 2, 1)) * 40px));
+}
+.link-pill svg { width: 18px; height: 18px; color: #2563eb; }
+.link-pill span { color: #6b7180; }
+
+/* 6. できること */
+.more { padding: 16vh 16px 6vh; }
+.more-inner, .steps-inner { max-width: 1120px; margin: 0 auto; }
+.more h2, .steps h2 { margin: 0 0 32px; font-weight: 900; font-size: clamp(28px, 4.6vw, 48px); line-height: 1.3; }
+.more dl { margin: 0; display: grid; grid-template-columns: repeat(3, 1fr); gap: 0 clamp(20px, 4vw, 48px); }
+.more dl > div { padding: 20px 0; border-top: 1px solid var(--line); }
+.more dt { font-weight: 700; font-size: 18px; margin-bottom: 4px; }
+.more dd { margin: 0; color: var(--sub); font-size: 15px; }
+
+/* 7. 始め方 */
+.steps { padding: 10vh 16px; }
+.steps ol { list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: repeat(3, 1fr); gap: clamp(16px, 3vw, 32px); counter-reset: s; }
+.steps li { counter-increment: s; background: var(--paper); border-radius: 22px; padding: 22px 22px 26px; }
+.steps li::before { content: counter(s); display: grid; place-items: center; width: 34px; height: 34px; border-radius: 50%; background: var(--accent); color: var(--accent-ink); font-weight: 900; margin-bottom: 14px; }
+.steps li b { display: block; font-size: 18px; margin-bottom: 4px; }
+.steps li span { color: var(--sub); font-size: 15px; }
+
+/* 8. 締め */
+.closing { padding: 12vh 16px 10vh; text-align: center; }
+.closing h2 { margin: 0 0 14px; font-weight: 900; font-size: clamp(32px, 6vw, 64px); line-height: 1.2; }
+.closing .note { max-width: 34em; margin: 0 auto 32px; color: var(--sub); font-size: 15px; }
+footer { padding: 28px 16px 40px; border-top: 1px solid var(--line); color: var(--sub); font-size: 12px; line-height: 1.7; }
+footer p { max-width: 1120px; margin: 0 auto 6px; }
+footer a { color: inherit; }
+
+/* ---- 狭い画面 ---- */
+@media (max-width: 760px) {
+  .duo .stage { gap: 14px; padding-top: 60px; }
+  .duo-title { font-size: 26px; }
+  .duo-grid { grid-template-columns: 1fr 1fr; gap: 10px 12px; }
+  .memo { grid-column: 1 / -1; grid-row: 2; padding: 16px; }
+  .person img { aspect-ratio: 4 / 3; max-height: 24svh; border-radius: 16px; }
+  .person figcaption { font-size: 12px; margin-top: 6px; }
+  .uses-inner { grid-template-columns: 1fr; }
+  .more dl { grid-template-columns: 1fr; }
+  .steps ol { grid-template-columns: 1fr; }
+  .link-pill { font-size: 12px; padding: 10px 14px; }
+}
+@media (max-height: 720px) and (max-width: 760px) {
+  .memo li:nth-child(n+5) { display: none; }
+}
+
+/* ---- 動きを減らす設定 ---- */
+@media (prefers-reduced-motion: reduce) {
+  .scene { height: auto; --p: 1; }
+  .stage { position: relative; height: auto; min-height: 100svh; }
+  .hero .stage { padding: 96px 16px 64px; gap: 40px; }
+  .hero-copy { position: static; opacity: 1; transform: none; }
+  .hint { display: none; }
+  .reveal-frame::after { display: none; }
+  .share .stage { min-height: 80svh; }
+}
+
+/* 項目が現れる順番（--t は場面の進み具合のしきい値） */
+.t20 { --t: .2; }
+.t35 { --t: .35; }
+.t50 { --t: .5; }
+.t55 { --t: .55; }
+.t65 { --t: .65; }
+.t72 { --t: .72; }

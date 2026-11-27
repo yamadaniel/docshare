@@ -6,7 +6,7 @@
 - リンク：URL を入力して空白を打つか、URL を貼り付けるとリンクになる。文字を選んでツールバーの 🔗 からも付けられる。リンク上にカーソルを置くと「開く・編集・解除」が出る。PC では Ctrl / Cmd + K で入力、Ctrl / Cmd + クリックで開く。使えるのは http・https・mailto だけ
 - 表示：ヘッダーの ☀ / ● でライト・ダークを切り替える（端末に保存）。選ぶまでは OS の設定に従う
 - AI からの読み取り：`/d/{docId}` の HTML には本文がサーバー側で埋め込まれる。JavaScript を実行しない読み手（Claude・ChatGPT・Gemini などの URL 読み取り）にも中身が見える
-- 紹介ページ：`/about`（静的 HTML。トップの「docshare とは」から開く。名前登録なしで読める）
+- 紹介ページ：`/about`（静的 HTML。トップの「docshare とは」から開く。名前登録なしで読める。ここだけ `noindex` を付けず検索エンジンに載せる）
 - 同期：prosemirror-collab。文書ごとに 1 つの Durable Object（DocRoom）が編集を確定・保存する
 - 履歴：編集はすべてリビジョンとして編集者付きで保存。任意の版に戻せる
 - ユーザー名：D1 に保存。名前を変えると過去の履歴の表示名も変わる
@@ -91,6 +91,8 @@ node tests/run.mjs tests/protocol.test.mjs
    npm run migrate:remote
    ```
 
+   `migrations/` にファイルが増えたときも、デプロイ前に同じコマンドで本番に反映する（`create_quota` が無い間は、文書作成の全体上限だけが効かない）。
+
 4. ビルドしてデプロイする。Durable Object（DocRoom、SQLite バックエンド）は初回デプロイ時に `migrations` の `v1` で作られる。
 
    ```bash
@@ -104,8 +106,9 @@ node tests/run.mjs tests/protocol.test.mjs
 | 項目 | 内容 |
 | --- | --- |
 | `assets.run_worker_first` | `/api/*` と `/d/*`（本文を埋め込むため）は常に Worker で処理する。それ以外は静的ファイル、なければ `index.html`（SPA フォールバック） |
-| `ratelimits` | 文書作成・ユーザー登録の IP 単位レート制限（60 秒あたり 10 回）。`namespace_id` はアカウント内で一意な整数文字列。バインディングが使えない環境では Worker 内の簡易カウンターで代替する |
-| `d1_databases` | ユーザー情報（`users` テーブル）。マイグレーションは `migrations/` |
+| `ratelimits` | IP 単位のレート制限。`CREATE_LIMITER` は文書作成・ユーザー登録（60 秒あたり 10 回）、`WS_LIMITER` は WebSocket 接続（60 秒あたり 60 回）。`namespace_id` はアカウント内で一意な整数文字列。バインディングが使えない環境では Worker 内の簡易カウンターで代替する |
+| `d1_databases` | ユーザー情報（`users` テーブル）と文書作成数（`create_quota` テーブル）。マイグレーションは `migrations/` |
+| `GLOBAL_CREATE_PER_MINUTE`（任意の環境変数） | 全体で 1 分あたりに作れる文書の数。未設定なら 60 |
 
 ## 構成
 
@@ -115,8 +118,11 @@ src/shared      schema、WebSocket メッセージ型、定数（フロントと
 src/worker      Worker エントリ、API ルーティング、レート制限、本文のサーバー側描画
 src/worker/do   DocRoom（Durable Object）
 migrations      D1 マイグレーション
-public/_headers 静的ファイルのセキュリティヘッダー
-public/about.html 紹介ページ
+public/_headers 静的ファイルのセキュリティヘッダー（CSP など。/about だけ X-Robots-Tag を外す）
+public/about.*  紹介ページ（HTML・CSS・JS）
+public/theme-init.js 選んだテーマを描画前に適用する（トップと紹介ページで共用）
+public/favicon.* アイコン（apple-touch-icon.png も）
+public/about-img 紹介ページの写真（ぱくたそのフリー素材。S サイズ相当に縮小し、ロゴをぼかしている）
 tests           試験（npm test）
 ```
 
@@ -145,6 +151,10 @@ WebSocket のメッセージ型は `src/shared/messages.ts` を参照。
 | 名前 | 1〜20 文字 |
 | WebSocket メッセージ数 | 1 接続あたり毎秒 20 件 |
 | 文書作成・ユーザー登録 | IP ごとに 60 秒あたり 10 回 |
+| 文書作成（全体） | 1 分あたり 60 件（`GLOBAL_CREATE_PER_MINUTE` で変更） |
+| WebSocket 接続 | IP ごとに 60 秒あたり 60 回 |
+| WebSocket 同時接続 | 1 文書あたり 100 本、うち同じ IP から 20 本 |
+| hello までの猶予 | 接続から 10 秒。過ぎると閉じる |
 
 ## 無料枠の目安
 
@@ -158,6 +168,10 @@ DocRoom の SQLite への行書き込み数（`wrangler dev` 上で `rowsWritten
 | 文書作成 | 4 行（meta 3 行、初期スナップショット 1 行。計測ではなく実装からの見積もり） |
 
 クライアントは入力停止 500ms 後（連続入力中は 2 秒ごと）にまとめて送るため、入力し続けても 1 人あたり約 2 秒に 1 リビジョンになる。無料枠の行書き込み 10 万行/日は、およそ 5 万リビジョン/日に相当する。
+
+## 写真素材
+
+紹介ページ（`public/about-img/`）の写真は、ぱくたそ［ https://www.pakutaso.com ］のフリー素材を利用しています。二次配布物の受領者がこの素材を継続して利用する場合は、ぱくたそ公式サイトからご自身でダウンロードしていただくか、ぱくたそのご利用規約［ https://www.pakutaso.com/userpolicy.html ］に同意していただく必要があります。
 
 ## 動作確認済みの環境
 

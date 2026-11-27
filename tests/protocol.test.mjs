@@ -8,6 +8,7 @@ import {
   hello,
   insertText,
   openWs,
+  d1Local,
   randomSecret,
   registerUser,
   sleep,
@@ -39,7 +40,13 @@ test("セキュリティヘッダー", async () => {
     assert.equal(res.status, status, path);
     assert.equal(res.headers.get("referrer-policy"), "no-referrer");
     assert.equal(res.headers.get("x-robots-tag"), "noindex");
+    assert.equal(res.headers.get("x-frame-options"), "DENY");
+    assert.match(res.headers.get("content-security-policy") ?? "", /frame-ancestors 'none'/);
   }
+  // 静的ファイル（public/_headers）と Worker の応答で CSP が同じ
+  const csp = async (path) => (await api(path)).headers.get("content-security-policy");
+  assert.equal(await csp("/"), await csp("/d/abcdefghijklmnopqrstuv"));
+  assert.equal(await csp("/about"), await csp("/api/docs/abcdefghijklmnopqrstuv/revisions"));
   const res = await api("/api/docs/abcdefghijklmnopqrstuv/revisions");
   assert.equal(res.headers.get("referrer-policy"), "no-referrer");
 });
@@ -225,6 +232,45 @@ test("文書作成とユーザー登録の IP レート制限", async () => {
     users.push((await api("/api/users", { method: "POST", ip, body })).status);
   }
   assert.deepEqual(users, [...Array(10).fill(201), 429]);
+});
+
+test("文書作成の全体上限", async () => {
+  const minute = Math.floor(Date.now() / 60_000);
+  // tests/run.mjs で上限を 1000 にしている。次の 1 分にまたがっても上限に達しているよう、2 分ぶん埋めておく
+  d1Local(`INSERT OR REPLACE INTO create_quota (minute, count) VALUES (${minute}, 1000), (${minute + 1}, 1000)`);
+  try {
+    assert.equal((await api("/api/docs", { method: "POST" })).status, 429);
+  } finally {
+    d1Local("DELETE FROM create_quota");
+  }
+  assert.equal((await api("/api/docs", { method: "POST" })).status, 201);
+});
+
+test("WebSocket の同時接続数と接続回数の上限", async () => {
+  const docId = await createDoc();
+  const ip = uniqueIp();
+  const sockets = [];
+  for (let i = 0; i < 20; i++) sockets.push(await openWs(docId, ip));
+  await assert.rejects(openWs(docId, ip), "同じ IP から 21 本目はつながらない");
+  const other = await openWs(docId);
+  for (const ws of [...sockets, other]) ws.close();
+
+  // 同じ IP からの接続は 1 分に 60 回まで（文書をまたいで数える）
+  const ip2 = uniqueIp();
+  const results = [];
+  for (let i = 0; i < 61; i++) {
+    results.push(await openWs(docId, ip2).then((ws) => (ws.close(), "ok"), () => "rejected"));
+  }
+  assert.deepEqual(results, [...Array(60).fill("ok"), "rejected"]);
+});
+
+test("hello を送らない接続は 10 秒で閉じられる", async () => {
+  const docId = await createDoc();
+  const ws = await openWs(docId);
+  // ping は hello の代わりにならない（wrangler dev では、何も送らない接続だと閉じる処理が最後まで届かない）
+  ws.send("ping");
+  await sleep(12_000);
+  assert.equal(ws.closeCode, 4408);
 });
 
 test("リンクは http・https・mailto だけを受け付ける", async () => {

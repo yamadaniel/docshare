@@ -10,6 +10,14 @@ export const MAX_WS_MESSAGE_BYTES = 64 * 1024;
 export const MAX_DOC_BYTES = 1024 * 1024;
 export const SNAPSHOT_INTERVAL = 200;
 export const WS_MESSAGES_PER_SECOND = 20;
+/** 1 文書に同時につなげる WebSocket の数 */
+export const MAX_SOCKETS_PER_DOC = 100;
+/** 1 文書に同じ IP からつなげる WebSocket の数 */
+export const MAX_SOCKETS_PER_IP = 20;
+/** 接続してから hello を送るまでの猶予 */
+export const HELLO_TIMEOUT_MS = 10_000;
+/** 文書を作れる数（全体で 1 分あたり）。環境変数 GLOBAL_CREATE_PER_MINUTE で変えられる */
+export const GLOBAL_CREATE_PER_MINUTE = 60;
 
 export const SEND_DEBOUNCE_MS = 500;
 export const SEND_MAX_WAIT_MS = 2000;
