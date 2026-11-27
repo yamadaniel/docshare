@@ -47,7 +47,7 @@ if (!ready) {
 const files = process.argv.slice(2);
 const result = spawnSync(
   process.execPath,
-  ["--test", "--test-concurrency=1", "--test-force-exit", ...(files.length ? files : ["tests/protocol.test.mjs", "tests/e2e.test.mjs"])],
+  ["--test", "--test-concurrency=1", "--test-force-exit", ...(files.length ? files : ["tests/protocol.test.mjs", "tests/archive.test.mjs", "tests/e2e.test.mjs"])],
   { stdio: "inherit", env: { ...process.env, BASE_URL, PERSIST_DIR } },
 );
 if (result.status !== 0 && process.env.TEST_SERVER_LOG) console.error(log);

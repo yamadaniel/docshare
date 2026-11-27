@@ -7,4 +7,5 @@ export interface Env {
   CREATE_LIMITER?: RateLimit;
   WS_LIMITER?: RateLimit;
   GLOBAL_CREATE_PER_MINUTE?: string;
+  ARCHIVE_AFTER_MS?: string;
 }

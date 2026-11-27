@@ -16,6 +16,8 @@ export const MAX_SOCKETS_PER_DOC = 100;
 export const MAX_SOCKETS_PER_IP = 20;
 /** 接続してから hello を送るまでの猶予 */
 export const HELLO_TIMEOUT_MS = 10_000;
+/** 最後の更新からこの時間がたった文書は読み取り専用（アーカイブ）になる。環境変数 ARCHIVE_AFTER_MS で変えられる */
+export const ARCHIVE_AFTER_MS = 30 * 24 * 60 * 60 * 1000;
 /** 文書を作れる数（全体で 1 分あたり）。環境変数 GLOBAL_CREATE_PER_MINUTE で変えられる */
 export const GLOBAL_CREATE_PER_MINUTE = 60;
 

@@ -179,6 +179,17 @@ async function handleApi(request: Request, env: Env, url: URL): Promise<Response
   }
   if (path === "/api/users/me" && method === "PATCH") return renameUser(request, env);
 
+  const cont = /^\/api\/docs\/([^/]+)\/continue$/.exec(path);
+  if (cont && method === "POST") {
+    if (!DOC_ID_RE.test(cont[1])) return json({ error: "not_found" }, 404);
+    if (!(await allowRequest(env, "docs", request))) return json({ error: "rate_limited" }, 429);
+    if (!(await allowGlobalCreate(env))) return json({ error: "rate_limited" }, 429);
+    const stub = env.DOC_ROOM.get(env.DOC_ROOM.idFromName(cont[1]));
+    const params = new URLSearchParams({ docId: cont[1], origin: url.origin });
+    const res = await stub.fetch(`https://do/continue?${params}`, { method: "POST" });
+    return json(await res.json(), res.status);
+  }
+
   const m = /^\/api\/docs\/([^/]+)\/(ws|revisions|revisions\/\d+)$/.exec(path);
   if (m && method === "GET") {
     const [, docId, rest] = m;

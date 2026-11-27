@@ -198,7 +198,14 @@ button { cursor: pointer; -webkit-tap-highlight-color: transparent; touch-action
 .tb-italic { font-style: italic; font-family: Georgia, serif; }
 .tb-underline { text-decoration: underline; }
 .tb-text { font-size: 15px; }
+.tb-btn:disabled { opacity: 0.35; }
 .tb-spacer { flex: 1; }
+/* 狭い画面（360px 幅まで）でもボタンが 1 行に収まるよう詰める */
+@media (max-width: 420px) {
+  .toolbar { gap: 2px; padding-left: 6px; padding-right: 6px; }
+  .tb-btn { min-width: 40px; }
+  .tb-text { padding: 0 6px; }
+}
 
 /* ---- modal ---- */
 .overlay {
@@ -242,6 +249,9 @@ button { cursor: pointer; -webkit-tap-highlight-color: transparent; touch-action
 }
 .btn.primary { border-color: var(--accent); background: var(--accent); color: var(--accent-fg); font-weight: 600; }
 .btn:disabled { opacity: 0.5; cursor: default; }
+a.btn { display: inline-flex; align-items: center; justify-content: center; text-decoration: none; color: inherit; }
+a.btn.primary { color: var(--accent-fg); }
+.btn.small { min-width: 0; height: 36px; padding: 0 12px; font-size: 14px; }
 
 /* ---- history sheet ---- */
 .sheet-overlay { position: fixed; inset: 0; z-index: 40; background: rgba(0, 0, 0, 0.35); }
@@ -358,6 +368,26 @@ button { cursor: pointer; -webkit-tap-highlight-color: transparent; touch-action
   font-size: 13px;
   text-align: center;
 }
+
+/* 完了・期限切れで読み取り専用になった文書 */
+.archive-banner {
+  position: sticky;
+  top: calc(var(--header-h) + env(safe-area-inset-top));
+  z-index: 8;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: center;
+  gap: 8px 12px;
+  padding: 10px 16px;
+  border-bottom: 1px solid var(--line);
+  background: var(--surface);
+  font-size: 14px;
+  text-align: center;
+}
+.archive-banner[hidden] { display: none; }
+.archive-text { margin: 0; color: var(--muted); }
+.archive-actions { display: flex; gap: 8px; }
 
 /* ---- theme toggle（左半分が太陽、右半分が満月の 1 アイコン） ---- */
 .theme-toggle {

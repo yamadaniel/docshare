@@ -4,7 +4,7 @@ import type { EditorState, Transaction } from "prosemirror-state";
 import { Step } from "prosemirror-transform";
 import type { EditorView } from "prosemirror-view";
 import { MAX_WS_MESSAGE_BYTES, SEND_DEBOUNCE_MS, SEND_MAX_WAIT_MS } from "../shared/constants";
-import type { ClientMessage, ServerMessage, StepJSON } from "../shared/messages";
+import type { ArchiveInfo, ClientMessage, ServerMessage, StepJSON } from "../shared/messages";
 import { schema } from "../shared/schema";
 import { createState } from "./editor";
 import type { User } from "./user";
@@ -17,12 +17,14 @@ export interface SyncCallbacks {
   onTitle(title: string): void;
   onPresence(userIds: string[]): void;
   onRename(userId: string, name: string): void;
+  /** 完了・取り消し・期限切れ・続きの文書の作成 */
+  onArchive(archive: ArchiveInfo | null): void;
   /** 文書が進んだ（履歴の再読込用） */
   onRevision(): void;
   onNotFound(): void;
   onUnauthorized(): void;
   /** 未送信の編集を破棄してサーバーの状態に戻した */
-  onReset(reason: "too_large" | "invalid"): void;
+  onReset(reason: "too_large" | "invalid" | "archived"): void;
 }
 
 const encoder = new TextEncoder();
@@ -189,6 +191,8 @@ export class DocConnection {
         return this.cb.onPresence(msg.userIds);
       case "rename":
         return this.cb.onRename(msg.userId, msg.name);
+      case "archive":
+        return this.cb.onArchive(msg.archive);
       case "error":
         return this.onError(msg.code);
     }
@@ -268,6 +272,8 @@ export class DocConnection {
         return;
       case "too_large":
       case "invalid":
+      case "archived":
+        // archived：読み取り専用になった文書への編集。送れなかった分を捨ててサーバーの状態を取り直す
         return this.reset(code);
       case "not_found":
         this.closed = true;
@@ -281,7 +287,7 @@ export class DocConnection {
   }
 
   /** 未送信の編集を破棄し、再接続してサーバーの状態を取り直す */
-  private reset(reason: "too_large" | "invalid"): void {
+  private reset(reason: "too_large" | "invalid" | "archived"): void {
     this.needReset = true;
     this.retry = 0;
     if (this.ws) this.dropped(this.ws);
@@ -352,5 +358,14 @@ export class DocConnection {
 
   sendRestore(revId: number): boolean {
     return this.send({ type: "restore", revId });
+  }
+
+  /** 送信できなければ false */
+  sendClose(): boolean {
+    return this.send({ type: "close" });
+  }
+
+  sendReopen(): boolean {
+    return this.send({ type: "reopen" });
   }
 }

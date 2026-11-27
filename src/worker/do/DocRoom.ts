@@ -3,18 +3,22 @@ import { Node, Slice } from "prosemirror-model";
 import { AttrStep, DocAttrStep, ReplaceStep, Step } from "prosemirror-transform";
 import { schema } from "../../shared/schema";
 import {
+  ARCHIVE_AFTER_MS,
   HELLO_TIMEOUT_MS,
   MAX_DOC_BYTES,
   MAX_SOCKETS_PER_DOC,
   MAX_SOCKETS_PER_IP,
+  isSafeHref,
   MAX_WS_MESSAGE_BYTES,
   SECRET_RE,
   SNAPSHOT_INTERVAL,
   USER_ID_RE,
   WS_MESSAGES_PER_SECOND,
+  generateDocId,
   sanitizeTitle,
 } from "../../shared/constants";
 import type {
+  ArchiveInfo,
   ClientMessage,
   ErrorCode,
   RevisionDocResponse,
@@ -40,9 +44,24 @@ interface Loaded {
   doc: Node;
   version: number;
   title: string;
+  /** 最後に本文・文書名を変えた（または完了を取り消した）時刻 */
+  lastEditAt: number;
+  /** 「完了」にした人と時刻。未完了なら null */
+  closedBy: string | null;
+  closedAt: number | null;
+  /** 続きの文書 */
+  successor: string | null;
 }
 
+/** 本文を変えるリビジョンの種類（文書の再構成に使う） */
+const DOC_KINDS = "kind IN ('steps', 'restore')";
+
 const encoder = new TextEncoder();
+const childrenOf = (doc: Node): Node[] => {
+  const out: Node[] = [];
+  doc.forEach((child) => out.push(child));
+  return out;
+};
 const byteLength = (s: string): number => (s.length * 3 <= MAX_WS_MESSAGE_BYTES ? s.length : encoder.encode(s).length);
 const json = (data: unknown, status = 200): Response => Response.json(data, { status });
 
@@ -66,6 +85,8 @@ export class DocRoom extends DurableObject<Env> {
   private loaded: Loaded | null | undefined;
   private readonly sql: SqlStorage;
   private readonly rate = new WeakMap<WebSocket, { at: number; count: number }>();
+  /** 続きの文書を作っている途中。同時に押されても 1 つだけ作る */
+  private continuing: Promise<string | null> | null = null;
 
   constructor(ctx: DurableObjectState, env: Env) {
     super(ctx, env);
@@ -88,7 +109,18 @@ export class DocRoom extends DurableObject<Env> {
     if (!rows.length) return (this.loaded = null);
     const meta = new Map(rows.map((r) => [r.key, r.value]));
     const { doc, version } = this.docAt(Number.MAX_SAFE_INTEGER);
-    return (this.loaded = { doc, version, title: meta.get("title") ?? "" });
+    const last = this.sql
+      .exec<{ at: number | null }>("SELECT MAX(created_at) AS at FROM revisions WHERE kind != 'close'")
+      .one().at;
+    return (this.loaded = {
+      doc,
+      version,
+      title: meta.get("title") ?? "",
+      lastEditAt: last ?? Number(meta.get("created_at") ?? Date.now()),
+      closedBy: meta.get("closed_by") ?? null,
+      closedAt: meta.has("closed_at") ? Number(meta.get("closed_at")) : null,
+      successor: meta.get("successor") ?? null,
+    });
   }
 
   /** 直近スナップショット ＋ 以降の revisions を再生して、指定 version 時点の文書を得る */
@@ -102,7 +134,7 @@ export class DocRoom extends DurableObject<Env> {
     let doc = Node.fromJSON(schema, JSON.parse(snap.doc_json));
     let version = snap.version;
     const cursor = this.sql.exec<{ to_version: number; steps_json: string }>(
-      "SELECT to_version, steps_json FROM revisions WHERE kind != 'title' AND from_version >= ? AND to_version <= ? ORDER BY rev_id",
+      `SELECT to_version, steps_json FROM revisions WHERE ${DOC_KINDS} AND from_version >= ? AND to_version <= ? ORDER BY rev_id`,
       snap.version,
       maxVersion,
     );
@@ -117,9 +149,8 @@ export class DocRoom extends DurableObject<Env> {
     return { doc, version };
   }
 
-  private create(): void {
+  private create(doc: Node = schema.node("doc", null, [schema.node("paragraph")]), title = ""): void {
     const now = Date.now();
-    const doc = schema.node("doc", null, [schema.node("paragraph")]);
     this.ctx.storage.transactionSync(() => {
       this.sql.exec("CREATE TABLE IF NOT EXISTS meta (key TEXT PRIMARY KEY, value TEXT NOT NULL)");
       this.sql.exec(
@@ -139,7 +170,8 @@ export class DocRoom extends DurableObject<Env> {
         "CREATE TABLE IF NOT EXISTS snapshots (version INTEGER PRIMARY KEY, doc_json TEXT NOT NULL, created_at INTEGER NOT NULL)",
       );
       this.sql.exec(
-        "INSERT INTO meta (key, value) VALUES ('title', ''), ('created_at', ?), ('version', '0')",
+        "INSERT INTO meta (key, value) VALUES ('title', ?), ('created_at', ?), ('version', '0')",
+        title,
         String(now),
       );
       this.sql.exec(
@@ -148,7 +180,7 @@ export class DocRoom extends DurableObject<Env> {
         now,
       );
     });
-    this.loaded = { doc, version: 0, title: "" };
+    this.loaded = { doc, version: 0, title, lastEditAt: now, closedBy: null, closedAt: null, successor: null };
   }
 
   // ---- HTTP ----
@@ -175,7 +207,21 @@ export class DocRoom extends DurableObject<Env> {
 
     if (path === "/init" && request.method === "POST") {
       if (this.load()) return json({ error: "exists" }, 409);
-      this.create();
+      // 続きの文書を作るときは、元の文書の本文と文書名を受け取る（DocRoom 同士の呼び出しだけ）
+      const body = (await request.json().catch(() => null)) as { doc?: unknown; title?: unknown } | null;
+      if (body?.doc) {
+        let doc: Node;
+        try {
+          doc = Node.fromJSON(schema, body.doc);
+          doc.check();
+        } catch {
+          return json({ error: "invalid" }, 400);
+        }
+        if (this.tooLarge(doc)) return json({ error: "too_large" }, 413);
+        this.create(doc, sanitizeTitle(body.title) ?? "");
+      } else {
+        this.create();
+      }
       return json({ ok: true });
     }
 
@@ -185,6 +231,15 @@ export class DocRoom extends DurableObject<Env> {
     // サーバー側で描画した本文（/d/{docId} の HTML に埋め込む）
     if (path === "/render" && request.method === "GET") {
       return json({ title: state.title, html: renderDocHtml(state.doc), description: describeDoc(state.doc) });
+    }
+
+    if (path === "/continue" && request.method === "POST") {
+      if (!this.archive(state)) return json({ error: "not_archived" }, 409);
+      const origin = url.searchParams.get("origin") ?? "";
+      const selfId = url.searchParams.get("docId") ?? "";
+      this.continuing ??= this.createSuccessor(state, origin, selfId).finally(() => (this.continuing = null));
+      const docId = await this.continuing;
+      return docId ? json({ docId }) : json({ error: "internal" }, 500);
     }
 
     if (path === "/revisions" && request.method === "GET") {
@@ -291,6 +346,10 @@ export class DocRoom extends DurableObject<Env> {
         return this.onRename(att.userId);
       case "restore":
         return this.onRestore(ws, att.userId, state, msg.revId);
+      case "close":
+        return this.onClose(ws, att.userId, state);
+      case "reopen":
+        return this.onReopen(ws, att.userId, state);
       default:
         return this.error(ws, "invalid");
     }
@@ -334,6 +393,7 @@ export class DocRoom extends DurableObject<Env> {
       doc: state.doc.toJSON(),
       title: state.title,
       users,
+      archive: await this.archiveInfo(state),
     });
     this.broadcast({ type: "rename", userId: msg.userId, name }, ws);
     this.broadcastPresence();
@@ -354,6 +414,7 @@ export class DocRoom extends DurableObject<Env> {
     ) {
       return this.error(ws, "invalid");
     }
+    if (this.archive(state)) return this.error(ws, "archived");
     if (msg.version !== state.version) return this.error(ws, "version_mismatch");
 
     let doc = state.doc;
@@ -387,6 +448,8 @@ export class DocRoom extends DurableObject<Env> {
     const title = sanitizeTitle(rawTitle);
     if (title === null) return this.error(ws, typeof rawTitle === "string" ? "too_large" : "invalid");
     if (title === state.title) return;
+    if (this.archive(state)) return this.error(ws, "archived");
+    const now = Date.now();
     this.ctx.storage.transactionSync(() => {
       this.sql.exec("UPDATE meta SET value = ? WHERE key = 'title'", title);
       this.sql.exec(
@@ -397,10 +460,11 @@ export class DocRoom extends DurableObject<Env> {
         state.version,
         JSON.stringify({ title }),
         JSON.stringify({ added: 0, deleted: 0 } satisfies RevisionStats),
-        Date.now(),
+        now,
       );
     });
     state.title = title;
+    state.lastEditAt = now;
     this.broadcast({ type: "title", title, userId });
   }
 
@@ -417,7 +481,7 @@ export class DocRoom extends DurableObject<Env> {
       to_version: number;
       steps_json: string;
     }>(
-      "SELECT rev_id, user_id, client_id, from_version, to_version, steps_json FROM revisions WHERE kind != 'title' AND to_version > ? ORDER BY rev_id",
+      `SELECT rev_id, user_id, client_id, from_version, to_version, steps_json FROM revisions WHERE ${DOC_KINDS} AND to_version > ? ORDER BY rev_id`,
       version,
     );
     let expected = version;
@@ -449,6 +513,7 @@ export class DocRoom extends DurableObject<Env> {
   /** 過去版の文書で現在の文書全体を置換する step を、新しいリビジョンとして追加する */
   private onRestore(ws: WebSocket, userId: string, state: Loaded, revId: unknown): void {
     if (typeof revId !== "number" || !Number.isInteger(revId)) return this.error(ws, "invalid");
+    if (this.archive(state)) return this.error(ws, "archived");
     const row = this.sql
       .exec<{ to_version: number }>("SELECT to_version FROM revisions WHERE rev_id = ?", revId)
       .toArray()[0];
@@ -508,6 +573,7 @@ export class DocRoom extends DurableObject<Env> {
     });
     state.doc = doc;
     state.version = to;
+    state.lastEditAt = now;
     this.broadcast({
       type: "steps",
       version: to,
@@ -516,6 +582,103 @@ export class DocRoom extends DurableObject<Env> {
       clientIds: stepsJson.map(() => clientId),
       steps: stepsJson,
     });
+  }
+
+  // ---- 完了・アーカイブ ----
+
+  private archiveAfter(): number {
+    return Number(this.env.ARCHIVE_AFTER_MS) || ARCHIVE_AFTER_MS;
+  }
+
+  /** 読み取り専用なら理由と時刻（名前は含まない）。編集できるなら null */
+  private archive(state: Loaded): Omit<ArchiveInfo, "name"> | null {
+    const successor = state.successor ?? undefined;
+    if (state.closedBy !== null) {
+      return { reason: "manual", at: state.closedAt ?? state.lastEditAt, userId: state.closedBy, successor };
+    }
+    const expires = state.lastEditAt + this.archiveAfter();
+    return Date.now() >= expires ? { reason: "auto", at: expires, successor } : null;
+  }
+
+  /** クライアントに送るアーカイブ情報（完了にした人の名前つき） */
+  private async archiveInfo(state: Loaded): Promise<ArchiveInfo | null> {
+    const info = this.archive(state);
+    if (!info?.userId) return info;
+    return { ...info, name: (await getUserName(this.env.DB, info.userId)) ?? "" };
+  }
+
+  private async broadcastArchive(state: Loaded): Promise<void> {
+    this.broadcast({ type: "archive", archive: await this.archiveInfo(state) });
+  }
+
+  /** 状態だけが変わる（本文は変わらない）リビジョンを記録する */
+  private recordMarker(kind: "close" | "reopen", userId: string, state: Loaded, now: number): void {
+    this.sql.exec(
+      `INSERT INTO revisions (user_id, client_id, kind, from_version, to_version, steps_json, stats_json, created_at)
+       VALUES (?, '', ?, ?, ?, '[]', ?, ?)`,
+      userId,
+      kind,
+      state.version,
+      state.version,
+      JSON.stringify({ added: 0, deleted: 0 } satisfies RevisionStats),
+      now,
+    );
+  }
+
+  /** 「完了」にする。誰でもできるが、取り消せるのは完了にした本人だけ */
+  private async onClose(ws: WebSocket, userId: string, state: Loaded): Promise<void> {
+    if (this.archive(state)) return this.error(ws, "archived");
+    const now = Date.now();
+    this.ctx.storage.transactionSync(() => {
+      this.sql.exec(
+        "INSERT OR REPLACE INTO meta (key, value) VALUES ('closed_by', ?), ('closed_at', ?)",
+        userId,
+        String(now),
+      );
+      this.recordMarker("close", userId, state, now);
+    });
+    state.closedBy = userId;
+    state.closedAt = now;
+    await this.broadcastArchive(state);
+  }
+
+  private async onReopen(ws: WebSocket, userId: string, state: Loaded): Promise<void> {
+    // 本人が完了にした文書だけ戻せる。期限切れや続きの文書があるものは戻さない
+    if (state.closedBy !== userId || state.successor !== null) return this.error(ws, "archived");
+    const now = Date.now();
+    this.ctx.storage.transactionSync(() => {
+      this.sql.exec("DELETE FROM meta WHERE key IN ('closed_by', 'closed_at')");
+      this.recordMarker("reopen", userId, state, now);
+    });
+    state.closedBy = null;
+    state.closedAt = null;
+    state.lastEditAt = now;
+    await this.broadcastArchive(state);
+  }
+
+  /** 本文を引き継いだ続きの文書を作り、その docId を記録する。冒頭に元の文書へのリンクを置く */
+  private async createSuccessor(state: Loaded, origin: string, selfId: string): Promise<string | null> {
+    if (state.successor) return state.successor;
+    const backHref = `${origin}/d/${selfId}`;
+    const intro = isSafeHref(backHref)
+      ? schema.node("paragraph", null, [schema.text("前の文書", [schema.marks.link.create({ href: backHref })])])
+      : null;
+    const doc = schema.node("doc", null, intro ? [intro, ...childrenOf(state.doc)] : childrenOf(state.doc));
+    for (let i = 0; i < 3; i++) {
+      const docId = generateDocId();
+      const stub = this.env.DOC_ROOM.get(this.env.DOC_ROOM.idFromName(docId));
+      const res = await stub.fetch("https://do/init", {
+        method: "POST",
+        body: JSON.stringify({ doc: doc.toJSON(), title: state.title }),
+      });
+      if (res.status === 409) continue;
+      if (!res.ok) return null;
+      this.sql.exec("INSERT OR REPLACE INTO meta (key, value) VALUES ('successor', ?)", docId);
+      state.successor = docId;
+      await this.broadcastArchive(state);
+      return docId;
+    }
+    return null;
   }
 
   // ---- 接続数の制限 ----

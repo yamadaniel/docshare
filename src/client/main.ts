@@ -32,6 +32,7 @@ const ctx: PageContext = {
     saveUser(next);
   },
   showNotFound: renderNotFound,
+  navigate: (path) => navigate(path),
 };
 
 function route(): void {
