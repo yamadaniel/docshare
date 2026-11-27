@@ -90,6 +90,33 @@ test("同時入力・書式・チェック・文書名が同期する", async ()
   await close(a, b);
 });
 
+test("IME の変換中の文字は送らず、確定してから同期する", async () => {
+  const { a, b } = await pair();
+  await a.click(".editor");
+  await a.keyboard.type("前");
+  await b.waitForFunction(() => document.querySelector(".editor")?.textContent === "前");
+  const ime = await a.context().newCDPSession(a);
+  for (const text of ["に", "にほ", "にほn"]) {
+    await ime.send("Input.imeSetComposition", { text, selectionStart: text.length, selectionEnd: text.length });
+    await sleep(150);
+  }
+  // 変換中に相手の入力が届いても、変換は途切れない
+  await b.click(".editor");
+  await b.keyboard.press("End");
+  await b.keyboard.type("B");
+  await sleep(2500);
+  assert.equal(await editorText(b), "前B", "未確定の文字は相手に届かない");
+  assert.equal(await editorText(a), "前にほn", "相手の入力は確定まで待つ");
+
+  await ime.send("Input.insertText", { text: "日本" });
+  // 同じ位置への入力なので、B と「日本」の順は先にサーバーへ届いたほうで決まる
+  await sleep(2500);
+  const text = await editorText(a);
+  assert.equal(await editorText(b), text);
+  assert.match(text, /^前(B日本|日本B)$/);
+  await close(a, b);
+});
+
 test("行のチェックボックス化と解除が同期する", async () => {
   const { a, b } = await pair();
   await a.click(".editor");
